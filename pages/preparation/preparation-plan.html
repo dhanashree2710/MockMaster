@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Preparation Plan — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../assets/css/variables.css" rel="stylesheet">
+  <link href="../../assets/css/style.css" rel="stylesheet">
+  <link href="../../assets/css/responsive.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar-app">
+    <a href="../dashboard.html" class="navbar-brand-app">
+      <img src="../../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img">
+      MockMaster
+    </a>
+    <div class="navbar-actions">
+      <button class="btn-ghost" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-content">
+      <div class="steps">
+        <div class="step done"><div class="step-dot"><i class="bi bi-check"></i></div><div class="step-label">Resume</div></div>
+        <div class="step done"><div class="step-dot"><i class="bi bi-check"></i></div><div class="step-label">Job</div></div>
+        <div class="step done"><div class="step-dot"><i class="bi bi-check"></i></div><div class="step-label">Match</div></div>
+        <div class="step active"><div class="step-dot">4</div><div class="step-label">Prepare</div></div>
+      </div>
+
+      <div class="page-header">
+        <h1>Your Personalized Interview Plan</h1>
+        <p>Based on your resume, the target role, and detected skill gaps.</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-8">
+          <div class="card-app">
+            <div class="card-body">
+              <h6 class="fw-bold mb-4">7-Day Preparation Plan</h6>
+              <div class="d-flex flex-column gap-3" id="planList"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-app mb-3">
+            <div class="card-body">
+              <h6 class="fw-bold mb-3">Skill Gap Priority</h6>
+              <div class="skill-row">
+                <span class="skill-name">TypeScript</span>
+                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:35%"></div></div></div>
+                <span class="skill-pct">35%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">Next.js</span>
+                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:25%"></div></div></div>
+                <span class="skill-pct">25%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">AWS</span>
+                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:20%"></div></div></div>
+                <span class="skill-pct">20%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">React</span>
+                <div class="skill-bar-wrap"><div class="progress-app success"><div class="bar" style="width:80%"></div></div></div>
+                <span class="skill-pct">80%</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-app">
+            <div class="card-body text-center">
+              <h6 class="fw-bold mb-2">Ready for a mock interview?</h6>
+              <p class="text-muted small mb-3">Practice with an AI interviewer that knows your resume and the job.</p>
+              <a href="../interview/interview-setup.html" class="btn-primary-app w-100">
+                Start AI Interview <i class="bi bi-mic ms-1"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer">
+    <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved.</span>
+    <span class="footer-sep">|</span>
+    <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+  </footer>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../assets/js/supabase-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/js/config.js"></script>
+  <script src="../../assets/js/theme.js"></script>
+  <script src="../../assets/js/utils.js"></script>
+  <script src="../../assets/js/app.js"></script>
+  <script>
+    const plan = [
+      { day: 1, title: 'JavaScript Fundamentals', desc: 'Closures, event loop, async/await, ES6+' },
+      { day: 2, title: 'React Deep Dive', desc: 'Hooks, state management, performance, TypeScript basics' },
+      { day: 3, title: 'REST APIs & Networking', desc: 'HTTP, fetch, error handling, API design' },
+      { day: 4, title: 'SQL & Data', desc: 'Queries, joins, indexing basics for frontend context' },
+      { day: 5, title: 'Behavioral Questions', desc: 'STAR method, leadership, conflict, mentoring' },
+      { day: 6, title: 'Project Discussion', desc: 'E-commerce Dashboard & Task Manager — structure your stories' },
+      { day: 7, title: 'Full Mock Interview', desc: 'End-to-end interview with AI interviewer' }
+    ];
+    document.getElementById('planList').innerHTML = plan.map(d => `
+      <div class="d-flex gap-3 align-items-start p-3 rounded-app" style="background:var(--surface-hover);">
+        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:40px;height:40px;background:var(--gradient-primary);color:white;font-weight:700;">${d.day}</div>
+        <div>
+          <strong>Day ${d.day}: ${d.title}</strong>
+          <p class="text-muted small mb-0">${d.desc}</p>
+        </div>
+      </div>
+    `).join('');
+  </script>
+  <script src="../../assets/js/auth-guard.js"></script>
+</body>
+</html>

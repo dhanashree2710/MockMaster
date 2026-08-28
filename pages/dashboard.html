@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2B5748">
+  <title>Dashboard — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../assets/css/variables.css" rel="stylesheet">
+  <link href="../assets/css/style.css" rel="stylesheet">
+  <link href="../assets/css/responsive.css" rel="stylesheet">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MockMaster">
+  <link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png">
+</head>
+<body class="dashboard-page">
+  <nav class="navbar-app">
+    <button class="btn-ghost d-lg-none me-2" data-bs-toggle="offcanvas" data-bs-target="#mobileNav"><i class="bi bi-list fs-5"></i></button>
+    <a href="dashboard.html" class="navbar-brand-app">
+      <img src="../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img">
+      MockMaster
+    </a>
+    <div class="navbar-actions">
+      <a href="rewards.html" class="btn-outline-app btn-sm me-1"><i class="bi bi-coin me-1"></i><span id="navCredits">0</span></a>
+      <button class="btn-ghost" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
+      <div class="dropdown">
+        <button class="btn-ghost dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-person-circle fs-5"></i></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="profile.html"><i class="bi bi-person me-2"></i>Profile</a></li>
+          <li><a class="dropdown-item" href="settings.html"><i class="bi bi-gear me-2"></i>Settings</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="#" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <aside class="sidebar d-none d-lg-block">
+    <nav class="nav flex-column">
+      <div class="nav-section">Main</div>
+      <a class="nav-link active" href="dashboard.html"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+      <a class="nav-link" href="resume/upload-resume.html"><i class="bi bi-file-earmark-person"></i> Resume</a>
+      <a class="nav-link" href="job/job-description.html"><i class="bi bi-briefcase"></i> Job Match</a>
+      <a class="nav-link" href="preparation/preparation-plan.html"><i class="bi bi-journal-check"></i> Preparation</a>
+      <a class="nav-link" href="interview/interview-setup.html"><i class="bi bi-robot"></i> AI Interview</a>
+      <div class="nav-section">Insights</div>
+      <a class="nav-link" href="interview/interview-history.html"><i class="bi bi-clock-history"></i> History</a>
+      <a class="nav-link" href="progress.html"><i class="bi bi-graph-up"></i> Progress</a>
+      <a class="nav-link" href="rewards.html"><i class="bi bi-gift"></i> Rewards</a>
+      <div class="nav-section">Account</div>
+      <a class="nav-link" href="profile.html"><i class="bi bi-person"></i> Profile</a>
+      <a class="nav-link" href="settings.html"><i class="bi bi-gear"></i> Settings</a>
+    </nav>
+  </aside>
+
+  <div class="offcanvas offcanvas-start mm-drawer" tabindex="-1" id="mobileNav" aria-labelledby="mobileNavLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="mobileNavLabel">
+        <img src="../assets/images/mockmaster-logo.png" alt="">
+        MockMaster
+      </h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <nav class="nav flex-column">
+        <div class="nav-section">Main</div>
+        <a class="nav-link active" href="dashboard.html"><i class="bi bi-grid-1x2"></i>Dashboard</a>
+        <a class="nav-link" href="resume/upload-resume.html"><i class="bi bi-file-earmark-person"></i>Resume</a>
+        <a class="nav-link" href="job/job-description.html"><i class="bi bi-briefcase"></i>Job Match</a>
+        <a class="nav-link" href="preparation/preparation-plan.html"><i class="bi bi-journal-check"></i>Preparation</a>
+        <a class="nav-link" href="interview/interview-setup.html"><i class="bi bi-mic"></i>AI Interview</a>
+        <a class="nav-link" href="interview/interview-history.html"><i class="bi bi-clock-history"></i>History</a>
+        <a class="nav-link" href="progress.html"><i class="bi bi-graph-up"></i>Progress</a>
+        <a class="nav-link" href="rewards.html"><i class="bi bi-gift"></i>Rewards</a>
+        <div class="nav-section">Account</div>
+        <a class="nav-link" href="profile.html"><i class="bi bi-person"></i>Profile</a>
+        <a class="nav-link" href="settings.html"><i class="bi bi-gear"></i>Settings</a>
+      </nav>
+      <div class="drawer-footer">
+        <a href="#" id="drawerLogout" class="btn-outline-app"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </div>
+
+  <main class="main-content has-sidebar">
+    <div class="page-content">
+      <div class="page-header">
+        <h1 data-greeting>Good Morning</h1>
+        <p>Here's your interview readiness overview.</p>
+      </div>
+
+      <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:rgba(79,70,229,0.12);color:var(--primary);"><i class="bi bi-briefcase"></i></div>
+            <div>
+              <div class="stat-value" style="font-size:1rem;" id="targetRole" style="font-size:clamp(0.85rem,3.5vw,1.15rem);line-height:1.2">—</div>
+              <div class="stat-label">Target Position</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--success-bg);color:var(--success);"><i class="bi bi-pie-chart"></i></div>
+            <div>
+              <div class="stat-value" id="matchScore">—</div>
+              <div class="stat-label">Resume Match</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--info-bg);color:var(--info);"><i class="bi bi-speedometer2"></i></div>
+            <div>
+              <div class="stat-value" id="readiness">—</div>
+              <div class="stat-label">Interview Readiness</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--warning-bg);color:var(--warning);"><i class="bi bi-mic"></i></div>
+            <div>
+              <div class="stat-value" id="mockCount">0</div>
+              <div class="stat-label">Mock Interviews</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-8">
+          <!-- Next action -->
+          <div class="card-app elevated mb-4">
+            <div class="card-body">
+              <h6 class="fw-bold mb-3">Next Recommended Action</h6>
+              <div id="nextAction">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="feature-icon mb-0"><i class="bi bi-file-earmark-arrow-up"></i></div>
+                  <div class="flex-grow-1">
+                    <strong>Upload your resume</strong>
+                    <p class="text-muted small mb-0">Start by letting AI understand your professional profile.</p>
+                  </div>
+                  <a href="resume/upload-resume.html" class="btn-primary-app flex-shrink-0">Upload <i class="bi bi-arrow-right ms-1"></i></a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Latest interview -->
+          <div class="card-app mb-4" id="latestInterviewCard" style="display:none;">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">Latest Interview</h6>
+                <a href="interview/interview-history.html" class="small">View all</a>
+              </div>
+              <div id="latestInterview"></div>
+            </div>
+          </div>
+
+          <!-- Skill progress -->
+          <div class="card-app">
+            <div class="card-body">
+              <h6 class="fw-bold mb-3">Skill Readiness</h6>
+              <div class="skill-row">
+                <span class="skill-name">JavaScript</span>
+                <div class="skill-bar-wrap"><div class="progress-app success"><div class="bar" style="width:90%"></div></div></div>
+                <span class="skill-pct">90%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">React</span>
+                <div class="skill-bar-wrap"><div class="progress-app success"><div class="bar" style="width:80%"></div></div></div>
+                <span class="skill-pct">80%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">SQL</span>
+                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:70%"></div></div></div>
+                <span class="skill-pct">70%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">TypeScript</span>
+                <div class="skill-bar-wrap"><div class="progress-app warning"><div class="bar" style="width:35%"></div></div></div>
+                <span class="skill-pct">35%</span>
+              </div>
+              <div class="skill-row">
+                <span class="skill-name">Behavioral</span>
+                <div class="skill-bar-wrap"><div class="progress-app success"><div class="bar" style="width:75%"></div></div></div>
+                <span class="skill-pct">75%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="card-app mb-4">
+            <div class="card-body">
+              <h6 class="fw-bold mb-3">Setup Status</h6>
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-circle text-muted" id="statusResume"></i>
+                <span>Resume analyzed</span>
+              </div>
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-circle text-muted" id="statusJob"></i>
+                <span>Job description matched</span>
+              </div>
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-circle text-muted" id="statusPrep"></i>
+                <span>Preparation plan ready</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-circle text-muted" id="statusInterview"></i>
+                <span>Mock interview completed</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-app">
+            <div class="card-body text-center">
+              <div class="feature-icon mx-auto"><i class="bi bi-robot"></i></div>
+              <h6 class="fw-bold">Start AI Mock Interview</h6>
+              <p class="text-muted small">Practice with an interviewer that knows your resume and target job.</p>
+              <a href="interview/interview-setup.html" class="btn-primary-app w-100">Start Interview</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+      <div class="card-app mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h6 class="fw-bold mb-0">Interview scores (reports)</h6>
+            <a href="progress.html" class="small">Full progress →</a>
+          </div>
+          <div style="position:relative;height:220px;">
+            <canvas id="dashScoreChart"></canvas>
+          </div>
+          <div id="dashReportList" class="mt-3"></div>
+        </div>
+      </div>
+
+  </main>
+  <footer class="site-footer">
+    <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved.</span>
+    <span class="footer-sep">|</span>
+    <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+  </footer>
+
+
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+    <div class="dock-bead" aria-hidden="true"><i class="bi bi-grid-1x2"></i></div>
+    <a href="dashboard.html" class="active" aria-label="Home"><i class="bi bi-grid-1x2"></i><span>Home</span></a>
+    <a href="resume/upload-resume.html" aria-label="Resume"><i class="bi bi-file-earmark-person"></i><span>Resume</span></a>
+    <a href="interview/interview-setup.html" aria-label="Interview"><i class="bi bi-mic"></i><span>Interview</span></a>
+    <a href="progress.html" aria-label="Progress"><i class="bi bi-graph-up"></i><span>Progress</span></a>
+    <a href="profile.html" aria-label="Profile"><i class="bi bi-person"></i><span>Profile</span></a>
+  </nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../assets/js/supabase-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/firebase.js"></script>
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script>
+    // Hydrate from Supabase so returning users see stored data
+    (async () => {
+      try {
+        if (window.DB && DB.isConfigured && DB.isConfigured() && DB.getSession && DB.getSession()) {
+          await DB.hydrateLocalFromCloud();
+        }
+      } catch (e) { console.warn(e); }
+      renderDashboard();
+    })();
+
+    function renderDashboard() {
+    const resume = Utils.getStored(STORAGE_KEYS.resume);
+    const job = Utils.getStored(STORAGE_KEYS.job);
+    const match = Utils.getStored(STORAGE_KEYS.match);
+    const sessions = Utils.getStored(STORAGE_KEYS.sessions, []);
+
+    if (job) document.getElementById('targetRole').textContent = job.position?.split(' ').slice(0,2).join(' ') || '—';
+    if (match) document.getElementById('matchScore').textContent = match.score + '%';
+    document.getElementById('mockCount').textContent = sessions.length;
+    if (sessions[0]) {
+      document.getElementById('readiness').textContent = sessions[0].score + '%';
+    }
+
+    // Status icons
+    if (resume) {
+      document.getElementById('statusResume').className = 'bi bi-check-circle-fill text-success';
+    }
+    if (job) {
+      document.getElementById('statusJob').className = 'bi bi-check-circle-fill text-success';
+      document.getElementById('statusPrep').className = 'bi bi-check-circle-fill text-success';
+    }
+    if (sessions.length) {
+      document.getElementById('statusInterview').className = 'bi bi-check-circle-fill text-success';
+    }
+
+    // Next action
+    const next = document.getElementById('nextAction');
+    if (!resume) {
+      // default already set
+    } else if (!job) {
+      next.innerHTML = `
+        <div class="d-flex align-items-center gap-3">
+          <div class="feature-icon mb-0"><i class="bi bi-briefcase"></i></div>
+          <div class="flex-grow-1">
+            <strong>Add a job description</strong>
+            <p class="text-muted small mb-0">Match your resume to a target role for personalized prep.</p>
+          </div>
+          <a href="job/job-description.html" class="btn-primary-app">Add Job <i class="bi bi-arrow-right ms-1"></i></a>
+        </div>`;
+    } else if (!sessions.length) {
+      next.innerHTML = `
+        <div class="d-flex align-items-center gap-3">
+          <div class="feature-icon mb-0"><i class="bi bi-robot"></i></div>
+          <div class="flex-grow-1">
+            <strong>Start your first AI mock interview</strong>
+            <p class="text-muted small mb-0">Practice with questions tailored to your resume and the job.</p>
+          </div>
+          <a href="interview/interview-setup.html" class="btn-primary-app">Start <i class="bi bi-arrow-right ms-1"></i></a>
+        </div>`;
+    } else {
+      next.innerHTML = `
+        <div class="d-flex align-items-center gap-3">
+          <div class="feature-icon mb-0"><i class="bi bi-lightning"></i></div>
+          <div class="flex-grow-1">
+            <strong>Practice weak areas</strong>
+            <p class="text-muted small mb-0">Focus on TypeScript and behavioral structure based on your last report.</p>
+          </div>
+          <a href="preparation/preparation-plan.html" class="btn-primary-app">Practice <i class="bi bi-arrow-right ms-1"></i></a>
+        </div>`;
+    }
+
+    // Latest interview
+    if (sessions[0]) {
+      const card = document.getElementById('latestInterviewCard');
+      if (card) card.style.display = 'block';
+      const el = document.getElementById('latestInterview');
+      if (el) el.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>${sessions[0].position || 'Interview'}</strong>
+            <div class="text-muted small">${Utils.formatDate(sessions[0].date)}</div>
+          </div>
+          <div class="text-end">
+            <div class="fw-bold fs-4" style="color:${Utils.scoreColor(sessions[0].score)}">${sessions[0].score}%</div>
+            <a href="report/interview-report.html" class="small btn-open-report" data-idx="0">View Report</a>
+          </div>
+        </div>`;
+    }
+
+    // Chart + report list from sessions (local + cloud-hydrated)
+    const chartEl = document.getElementById('dashScoreChart');
+    if (chartEl && window.Chart) {
+      const chronological = sessions.slice().reverse();
+      const labels = chronological.map((s, i) => {
+        try { return Utils.formatDate(s.date); } catch { return '#' + (i + 1); }
+      });
+      const scores = chronological.map(s => Number(s.score) || 0);
+      new Chart(chartEl, {
+        type: 'line',
+        data: {
+          labels: labels.length ? labels : ['—'],
+          datasets: [{
+            label: 'Score',
+            data: scores.length ? scores : [0],
+            borderColor: '#2B5748',
+            backgroundColor: 'rgba(156,176,128,0.2)',
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#9CB080',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { min: 0, max: 100 } },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+    const listEl = document.getElementById('dashReportList');
+    if (listEl) {
+      if (!sessions.length) {
+        listEl.innerHTML = '<p class="text-muted small mb-0">No interview reports yet. Complete a mock interview to see scores here.</p>';
+      } else {
+        listEl.innerHTML = sessions.slice(0, 5).map((s, i) => `
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color:var(--border)!important;">
+            <div>
+              <div class="fw-semibold small">${s.position || 'Interview'}</div>
+              <div class="text-muted" style="font-size:0.75rem;">${s.date ? Utils.formatDate(s.date) : '—'} · ${s.difficulty || ''}</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-bold" style="color:${Utils.scoreColor(s.score)}">${s.score}%</span>
+              <button type="button" class="btn-outline-app btn-sm btn-open-report" data-idx="${i}">Report</button>
+            </div>
+          </div>`).join('');
+        listEl.querySelectorAll('.btn-open-report').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const s = sessions[Number(btn.dataset.idx)];
+            if (!s) return;
+            sessionStorage.setItem('ipa_last_report', JSON.stringify({
+              overallScore: s.score,
+              duration: s.duration,
+              completedAt: s.date,
+              setup: { position: s.position, difficulty: s.difficulty, style: s.style, type: s.type },
+              answers: s.answers || s.detailed?.answers || []
+            }));
+            location.href = 'report/interview-report.html';
+          });
+        });
+      }
+    }
+    try { document.getElementById('navCredits').textContent = Utils.getCredits(); } catch (_) {}
+    } // end renderDashboard
+  </script>
+  <script>try{document.getElementById("navCredits").textContent=Utils.getCredits()}catch(e){}</script>
+  <script src="../assets/js/auth-guard.js"></script>
+  <script>
+    (function () {
+      function doLogout(e) {
+        if (e) e.preventDefault();
+        try {
+          if (window.AuthGuard && AuthGuard.logout) { AuthGuard.logout(); return; }
+        } catch (_) {}
+        try {
+          localStorage.removeItem('mm_session');
+          localStorage.removeItem('ipa_user');
+          sessionStorage.clear();
+        } catch (_) {}
+        window.location.href = 'login.html';
+      }
+      ['logoutBtn', 'drawerLogout'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', doLogout);
+      });
+      document.querySelectorAll('[data-logout], .logout-btn').forEach(function (el) {
+        el.addEventListener('click', doLogout);
+      });
+    })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('../sw.js').catch(function (e) { console.warn('SW', e); });
+      });
+    }
+  </script>
+</body>
+</html>

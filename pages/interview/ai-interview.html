@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en" class="interview-html">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2B5748">
+  <title>AI Interview — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../assets/css/variables.css" rel="stylesheet">
+  <link href="../../assets/css/style.css" rel="stylesheet">
+  <link href="../../assets/css/interview.css" rel="stylesheet">
+  <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <style>
+    body.interview-page { margin: 0; }
+    .navbar-app { position: sticky; top: 0; z-index: 100; }
+  </style>
+</head>
+<body class="interview-page">
+  <nav class="navbar-app">
+    <a href="../dashboard.html" class="navbar-brand-app">
+      <img src="../../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img">
+      MockMaster
+    </a>
+    <div class="navbar-actions">
+      <span class="badge-app badge-primary me-2" id="timer">00:00</span>
+      <button class="btn-outline-app btn-sm" id="endBtn">End Interview</button>
+    </div>
+  </nav>
+
+  <div class="interview-layout">
+    <aside class="interview-sidebar d-none d-lg-block">
+      <div class="text-center mb-4">
+        <div class="mx-auto mb-2" style="width:72px;height:72px;border-radius:50%;background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;color:white;font-size:2rem;">
+          <i class="bi bi-robot"></i>
+        </div>
+        <strong>AI Interviewer</strong>
+        <div class="text-muted small" id="styleLabel">Professional · Medium</div>
+        <div class="mt-2">
+          <span class="badge-app badge-success" id="statusBadge"><span class="spinner-grow spinner-grow-sm me-1" style="width:8px;height:8px;"></span> Speaking</span>
+        </div>
+      </div>
+      <hr style="border-color:var(--border);">
+      <div class="small text-muted mb-1">Progress</div>
+      <div class="progress-app mb-2"><div class="bar" id="progressBar" style="width:0%"></div></div>
+      <div class="d-flex justify-content-between small mb-3">
+        <span>Question <span id="qNum">1</span> / <span id="qTotal">10</span></span>
+      </div>
+      <div class="small text-muted mb-1">Target Role</div>
+      <p class="fw-semibold small mb-3" id="roleLabel">Senior Frontend Developer</p>
+      <div class="small text-muted mb-1">Tips</div>
+      <ul class="small text-muted ps-3 mb-0">
+        <li>Be concise and structured</li>
+        <li>Use examples from your resume</li>
+        <li>Think out loud for technical Qs</li>
+      </ul>
+    </aside>
+
+    <div class="interview-main">
+      <div class="interview-header d-lg-none">
+        <span class="fw-semibold">Q <span id="qNumM">1</span>/<span id="qTotalM">10</span></span>
+        <span class="badge-app badge-primary" id="timerM">00:00</span>
+      </div>
+      <div class="interview-messages" id="messages">
+        <!-- Messages injected by JS -->
+      </div>
+      <div class="interview-input-area">
+        <textarea class="form-control form-control-app mb-2" id="answerInput" placeholder="Type your answer here..." rows="3"></textarea>
+        <div class="d-flex justify-content-between align-items-center">
+          <button class="btn-ghost" id="micBtn" title="Voice input (demo)"><i class="bi bi-mic fs-5"></i></button>
+          <button class="btn-primary-app" id="submitBtn" disabled>
+            Submit Answer <i class="bi bi-send ms-1"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../assets/js/supabase-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/js/config.js"></script>
+  <script src="../../assets/js/interview-questions.js"></script>
+  <script src="../../assets/js/firebase.js"></script>
+  <script src="../../assets/js/theme.js"></script>
+  <script src="../../assets/js/utils.js"></script>
+  <script>
+    const setup = JSON.parse(sessionStorage.getItem('ipa_interview_setup') || '{}');
+    const resumeData = (window.Utils && Utils.getStored(STORAGE_KEYS.resume)) || {};
+    const jobData = (window.Utils && Utils.getStored(STORAGE_KEYS.job)) || {};
+    let questions;
+    try {
+      const pack = JSON.parse(sessionStorage.getItem('ipa_premium_questions') || 'null');
+      if (pack && Array.isArray(pack) && pack.length && setup.premiumPack) {
+        questions = pack.map((q, i) => ({ id: i + 1, type: q.type || 'technical', question: q.question, domain: 'general', level: 'advanced' }));
+        sessionStorage.removeItem('ipa_premium_questions');
+      }
+    } catch (_) {}
+    if (!questions) {
+      questions = (window.InterviewQuestions
+        ? InterviewQuestions.buildInterviewQuestions({ resume: resumeData, job: jobData, setup })
+        : MOCK_QUESTIONS).slice(0, setup.numQuestions || 10);
+    }
+    let current = 0;
+    let answers = [];
+    let startTime = Date.now();
+    let timerInterval;
+
+    document.getElementById('styleLabel').textContent = `${setup.style || 'Professional'} · ${setup.difficulty || 'Medium'}`;
+    document.getElementById('roleLabel').textContent = setup.position || 'Senior Frontend Developer';
+    document.getElementById('qTotal').textContent = questions.length;
+    document.getElementById('qTotalM').textContent = questions.length;
+
+    function updateTimer() {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      const m = String(Math.floor(s / 60)).padStart(2, '0');
+      const sec = String(s % 60).padStart(2, '0');
+      document.getElementById('timer').textContent = `${m}:${sec}`;
+      document.getElementById('timerM').textContent = `${m}:${sec}`;
+    }
+    timerInterval = setInterval(updateTimer, 1000);
+
+    function addMessage(text, who) {
+      const div = document.createElement('div');
+      div.className = `message ${who}`;
+      div.innerHTML = `
+        <div class="message-avatar">${who === 'ai' ? '<i class="bi bi-robot"></i>' : '<i class="bi bi-person"></i>'}</div>
+        <div class="message-bubble">${text}</div>
+      `;
+      const box = document.getElementById('messages');
+      box.appendChild(div);
+      // Scroll so latest question/answer is visible
+      requestAnimationFrame(() => {
+        box.scrollTop = box.scrollHeight;
+        div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+
+    function askQuestion() {
+      if (current >= questions.length) {
+        finishInterview();
+        return;
+      }
+      document.getElementById('statusBadge').innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" style="width:8px;height:8px;"></span> Speaking';
+      document.getElementById('qNum').textContent = current + 1;
+      document.getElementById('qNumM').textContent = current + 1;
+      document.getElementById('progressBar').style.width = ((current / questions.length) * 100) + '%';
+      addMessage(questions[current].question, 'ai');
+      document.getElementById('statusBadge').innerHTML = '<i class="bi bi-circle-fill me-1" style="font-size:8px;"></i> Listening';
+      document.getElementById('answerInput').value = '';
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('answerInput').focus();
+    }
+
+    document.getElementById('answerInput').addEventListener('input', e => {
+      document.getElementById('submitBtn').disabled = !e.target.value.trim();
+    });
+
+    // Credits per answered question
+    const CREDITS_PER_ANSWER = 10;
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      const ans = document.getElementById('answerInput').value.trim();
+      if (!ans) return;
+      addMessage(ans, 'user');
+      const score = scoreAnswer(ans, questions[current]);
+      const ev = buildEvaluation(ans, score, questions[current]);
+      answers.push({
+        question: questions[current].question,
+        type: questions[current].type,
+        level: questions[current].level,
+        domain: questions[current].domain,
+        answer: ans,
+        score,
+        evaluation: ev.evalText,
+        betterAnswer: ev.better
+      });
+      // Award credits to wallet
+      if (window.Utils && Utils.addCredits) {
+        const bal = Utils.addCredits(CREDITS_PER_ANSWER, 'Answered interview question');
+        if (Utils.showToast) Utils.showToast('+' + CREDITS_PER_ANSWER + ' credits · Balance ' + bal, 'success', 2200);
+      }
+      // Instant feedback if enabled
+      if (setup.instantFeedback) {
+        addMessage('Quick feedback: Score ' + score + '/100 for this answer. Keep using concrete examples.', 'ai');
+      }
+      current++;
+      document.getElementById('submitBtn').disabled = true;
+      setTimeout(askQuestion, setup.instantFeedback ? 1200 : 600);
+    });
+
+    document.getElementById('endBtn').addEventListener('click', () => {
+      if (confirm('End interview and view report?')) finishInterview();
+    });
+
+    
+    function getModelAnswer(q) {
+      const question = (q && q.question) ? q.question : '';
+      if (window.InterviewQuestions && InterviewQuestions.getModelAnswer) {
+        return InterviewQuestions.getModelAnswer(question);
+      }
+      return 'Give a clear definition, one real example, and when you would use it in a project.';
+    }
+
+    function scoreAnswer(answer, q) {
+      const text = (answer || '').trim();
+      const aLow = text.toLowerCase();
+      const words = text.split(/\s+/).filter(Boolean);
+
+      // Explicit non-answers → very low score
+      if (!text || words.length === 0) return 15;
+      if (/^(no|n\/a|na|idk|none|-)$/i.test(text)) return 18;
+      if (/can'?t (get|answer|say)|don'?t know|dont know|no idea|not sure|unable to answer|skip|pass/i.test(aLow) && words.length < 12) {
+        return 22;
+      }
+      if (words.length <= 2) return 25;
+      if (words.length <= 5) return 32;
+
+      let score = 40;
+      if (words.length >= 12) score += 10;
+      if (words.length >= 25) score += 10;
+      if (words.length >= 45) score += 8;
+
+      const qWords = (q && q.question ? q.question : '').toLowerCase().split(/\W+/).filter(w => w.length > 3);
+      let hits = 0;
+      qWords.forEach(w => { if (aLow.includes(w)) hits++; });
+      score += Math.min(15, hits * 2);
+
+      // Concept keywords for common frontend topics
+      if (/html|hypertext|markup/i.test(q.question || '')) {
+        if (/hypertext|markup|structure|browser/i.test(aLow)) score += 10;
+      }
+      if (/var|let|const/i.test(q.question || '')) {
+        if (/scope|block|hoist|reassign|redeclar/i.test(aLow)) score += 12;
+        if (/const/.test(aLow) && /let/.test(aLow) && /var/.test(aLow)) score += 8;
+      }
+      if (/semantic/i.test(q.question || '')) {
+        if (/header|footer|nav|main|article|section|meaning/i.test(aLow)) score += 12;
+      }
+      if (/data types/i.test(q.question || '')) {
+        if (/string|number|boolean|object|undefined|null|symbol|bigint/i.test(aLow)) score += 12;
+      }
+      if (/arrow function|function/i.test(q.question || '')) {
+        if (/reuse|block|parameter|this|=>|arrow/i.test(aLow)) score += 10;
+      }
+
+      if (/for example|because|such as|for instance|i (used|built|implemented)/i.test(text)) score += 6;
+
+      // Cap weak content
+      if (words.length < 15 && hits < 2) score = Math.min(score, 50);
+
+      return Math.max(15, Math.min(96, Math.round(score)));
+    }
+
+    function buildEvaluation(answer, score, q) {
+      const model = getModelAnswer(q);
+      let evalText;
+      if (score < 30) {
+        evalText = 'Incorrect or incomplete. You did not demonstrate the required concept — review the suggested answer.';
+      } else if (score < 50) {
+        evalText = 'Needs work. The answer is too short or missing key points. Study the suggested answer and try again.';
+      } else if (score < 70) {
+        evalText = 'Partial answer. You touched the topic but need clearer definitions and examples.';
+      } else if (score < 85) {
+        evalText = 'Solid response. Add a bit more structure and a concrete example to reach a strong score.';
+      } else {
+        evalText = 'Strong answer — clear, relevant, and well explained.';
+      }
+      return { evalText, better: model };
+    }
+
+    function finishInterview() {
+      clearInterval(timerInterval);
+      const duration = Math.floor((Date.now() - startTime) / 1000);
+      const report = {
+        answers,
+        setup,
+        duration,
+        overallScore: answers.length ? Math.round(answers.reduce((a, b) => a + b.score, 0) / answers.length) : 0,
+        completedAt: new Date().toISOString()
+      };
+      sessionStorage.setItem('ipa_last_report', JSON.stringify(report));
+      // Save to history
+      const sessions = Utils.getStored(STORAGE_KEYS.sessions, []);
+      sessions.unshift({
+        id: Date.now(),
+        position: setup.position || 'Mock Interview',
+        score: report.overallScore,
+        date: report.completedAt,
+        duration,
+        difficulty: setup.difficulty,
+        style: setup.style,
+        type: setup.type,
+        language: setup.language,
+        numQuestions: setup.numQuestions || answers.length,
+        answers: answers,
+        setup: setup
+      });
+      
+      Utils.setStored(STORAGE_KEYS.sessions, sessions.slice(0, 20));
+      // Save interview + report to Supabase
+      (async () => {
+        try {
+          if (!(window.DB && DB.isConfigured && DB.isConfigured() && DB.getSession && DB.getSession())) return;
+          const resume = Utils.getStored(STORAGE_KEYS.resume) || {};
+          const job = Utils.getStored(STORAGE_KEYS.job) || {};
+          const sess = await DB.createSession({
+            resumeId: resume.id || null,
+            jobId: job.id || null,
+            title: setup.position || 'Mock Interview',
+            mode: (setup.style || 'professional').toLowerCase().includes('friend') ? 'friendly'
+              : (setup.style || '').toLowerCase().includes('strict') ? 'strict' : 'professional',
+            difficulty: (setup.difficulty || 'medium').toLowerCase(),
+            language: setup.language || 'en',
+            totalQuestions: setup.numQuestions || answers.length
+          });
+          if (sess && sess.id) {
+            await DB.startSession(sess.id);
+            const qs = await DB.addQuestions(sess.id, answers.map((a, i) => ({
+              order: i + 1,
+              text: a.question,
+              category: a.type || 'general'
+            })));
+            for (let i = 0; i < answers.length; i++) {
+              const qid = qs && qs[i] && qs[i].id;
+              if (!qid) continue;
+              await DB.saveAnswer({
+                sessionId: sess.id,
+                questionId: qid,
+                answerText: answers[i].answer,
+                score: answers[i].score,
+                feedback: '',
+                metrics: {},
+                durationSec: null
+              });
+            }
+            await DB.completeSession(sess.id);
+            await DB.saveReport({
+              sessionId: sess.id,
+              overall: report.overallScore,
+              clarity: report.overallScore,
+              relevance: report.overallScore,
+              depth: report.overallScore,
+              delivery: report.overallScore,
+              strengths: ['Clear delivery', 'Relevant examples'],
+              improvements: ['Add metrics', 'Use STAR structure'],
+              summary: 'Completed mock interview for ' + (setup.position || 'role'),
+              detailed: { answers, setup, duration }
+            });
+            await DB.refreshProgress();
+          }
+        } catch (err) { console.warn('Supabase interview save', err); }
+      })();
+
+      // Bonus credits for completing interview
+      if (window.Utils && Utils.addCredits && answers.length) {
+        Utils.addCredits(25, 'Completed mock interview');
+      }
+      location.href = '../report/interview-report.html';
+    }
+
+    // ---- Text-to-Speech (AI asks question) ----
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-IN';
+      u.rate = 0.95;
+      u.pitch = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => /en-IN|Indian|Google UK/i.test(v.lang + v.name)) || voices.find(v => /^en/i.test(v.lang));
+      if (preferred) u.voice = preferred;
+      u.onstart = () => {
+        document.getElementById('statusBadge').innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" style="width:8px;height:8px;"></span> Speaking';
+      };
+      u.onend = () => {
+        document.getElementById('statusBadge').innerHTML = '<i class="bi bi-circle-fill me-1" style="font-size:8px;"></i> Listening';
+      };
+      window.speechSynthesis.speak(u);
+    }
+
+    // ---- Speech-to-Text (Mic) ----
+    let isRecording = false;
+    let recognition = null;
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    function setMicUI(recording) {
+      const btn = document.getElementById('micBtn');
+      if (!btn) return;
+      const icon = btn.querySelector('i');
+      if (recording) {
+        btn.classList.add('recording', 'text-danger');
+        if (icon) icon.className = 'bi bi-mic-fill fs-5';
+        document.getElementById('statusBadge').innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" style="width:8px;height:8px;"></span> Listening';
+      } else {
+        btn.classList.remove('recording', 'text-danger');
+        if (icon) icon.className = 'bi bi-mic fs-5';
+      }
+    }
+
+    function startMic() {
+      if (!SpeechRecognitionAPI) {
+        alert('Speech recognition is not supported in this browser. Please use Chrome/Edge, or type your answer.');
+        return;
+      }
+      try {
+        recognition = new SpeechRecognitionAPI();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-IN';
+
+        let finalText = document.getElementById('answerInput').value || '';
+
+        recognition.onstart = () => {
+          isRecording = true;
+          setMicUI(true);
+        };
+
+        recognition.onresult = (event) => {
+          let interim = '';
+          let finals = finalText;
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const t = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finals = (finals ? finals + ' ' : '') + t.trim();
+              finalText = finals;
+            } else {
+              interim += t;
+            }
+          }
+          const box = document.getElementById('answerInput');
+          box.value = (finals + (interim ? ' ' + interim : '')).trim();
+          document.getElementById('submitBtn').disabled = !box.value.trim();
+        };
+
+        recognition.onerror = (err) => {
+          console.warn('Speech error:', err);
+          isRecording = false;
+          setMicUI(false);
+          if (err.error === 'not-allowed') {
+            alert('Microphone permission denied. Allow mic access in browser settings.');
+          }
+        };
+
+        recognition.onend = () => {
+          isRecording = false;
+          setMicUI(false);
+        };
+
+        recognition.start();
+      } catch (e) {
+        console.error(e);
+        alert('Could not start microphone. Please type your answer.');
+        isRecording = false;
+        setMicUI(false);
+      }
+    }
+
+    function stopMic() {
+      if (recognition) {
+        try { recognition.stop(); } catch (_) {}
+      }
+      isRecording = false;
+      setMicUI(false);
+    }
+
+    document.getElementById('micBtn')?.addEventListener('click', () => {
+      if (isRecording) stopMic();
+      else startMic();
+    });
+
+    // Speak each question when asked
+    const _askQuestion = askQuestion;
+    askQuestion = function () {
+      if (current >= questions.length) {
+        finishInterview();
+        return;
+      }
+      stopMic();
+      document.getElementById('statusBadge').innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" style="width:8px;height:8px;"></span> Speaking';
+      document.getElementById('qNum').textContent = current + 1;
+      document.getElementById('qNumM').textContent = current + 1;
+      document.getElementById('progressBar').style.width = ((current / questions.length) * 100) + '%';
+      const qText = questions[current].question;
+      addMessage(qText, 'ai');
+      document.getElementById('answerInput').value = '';
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('answerInput').focus();
+      speakText(qText);
+    };
+
+    // Stop mic when submitting
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.addEventListener('click', () => stopMic(), true);
+
+    // Start
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+    askQuestion();
+  </script>
+  <script src="../../assets/js/auth-guard.js"></script>
+</body>
+</html>

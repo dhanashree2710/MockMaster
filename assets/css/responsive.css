@@ -1,0 +1,247 @@
+/* ============================================================
+   MockMaster — Responsive helpers (desktop / tablet / mobile)
+   ============================================================ */
+
+/* Ensure no horizontal scroll on any device */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* ---- Desktop (default, ≥ 992px) ---- */
+/* Layout already handled in style.css */
+
+/* ---- Tablet (768px – 991px) ---- */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .page-content {
+    padding: 1.75rem 1.5rem;
+  }
+  .site-footer {
+    font-size: 0.8rem;
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+/* ---- Mobile (≤ 767px) ---- */
+@media (max-width: 767.98px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .interview-layout {
+    gap: 1rem;
+  }
+
+  .ai-panel {
+    flex-direction: row;
+    text-align: left;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .ai-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 1.5rem;
+    margin-bottom: 0;
+  }
+
+  .question-text {
+    font-size: 1.1rem;
+  }
+
+  .hero-section {
+    text-align: center;
+  }
+
+  .hero-section .hero-visual {
+    margin-top: 2rem;
+  }
+
+  .page-content {
+    padding: 1.15rem 1rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.45rem;
+  }
+
+  .site-footer {
+    font-size: 0.75rem;
+    padding: 1.1rem 1rem;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+}
+
+/* ---- Extra small (≤ 375px) ---- */
+@media (max-width: 375px) {
+  h1 { font-size: 1.75rem; }
+  .dashboard-greeting h1 { font-size: 1.4rem; }
+  .card-stat .stat-value { font-size: 1.4rem; }
+  .btn-lg { padding: 0.7rem 1.25rem; font-size: 0.95rem; }
+  .site-footer { font-size: 0.68rem; padding: 0.9rem 0.65rem; }
+  .page-header h1 { font-size: 1.3rem; }
+}
+
+/* Touch-friendly targets on tablet & mobile */
+@media (max-width: 991.98px) {
+  .btn, .nav-link, .category-card, .rec-card {
+    min-height: 44px;
+  }
+}
+
+/* Bottom nav safe-area for notched phones */
+@supports (padding: max(0px)) {
+  @media (max-width: 991.98px) {
+    .bottom-nav {
+      padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
+    }
+    .main-content {
+      padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ========== Dashboard & app shell — mobile polish ========== */
+@media (max-width: 991.98px) {
+  .navbar-app {
+    padding: 0.55rem 0.75rem;
+    gap: 0.35rem;
+  }
+  .navbar-brand-app {
+    font-size: 1rem;
+    gap: 0.4rem;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .brand-logo-img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .navbar-actions {
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+  .navbar-actions .btn-outline-app {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+  }
+  .navbar-actions .btn-ghost {
+    padding: 0.3rem;
+  }
+  .navbar-actions .dropdown-toggle::after {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 0.85rem 0.85rem 5.5rem;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .page-content {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .page-header h1 {
+    font-size: 1.35rem;
+  }
+  .page-header p {
+    font-size: 0.875rem;
+  }
+
+  /* Stat cards — 2x2 grid, tighter */
+  .stat-card {
+    padding: 0.9rem 0.85rem;
+    gap: 0.65rem;
+    min-height: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .stat-card .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+  .stat-card .stat-value {
+    font-size: 1.2rem;
+    word-break: break-word;
+  }
+  .stat-card .stat-label {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  /* Recommended action card */
+  .card-app .card-body {
+    padding: 1rem;
+  }
+
+  /* Bottom nav safe area */
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Prevent horizontal scroll from any wide child */
+  body {
+    overflow-x: hidden;
+  }
+  img, svg, video, canvas {
+    max-width: 100%;
+  }
+  .row {
+    margin-left: -0.4rem;
+    margin-right: -0.4rem;
+  }
+  .row > * {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .navbar-brand-app span,
+  .navbar-brand-app {
+    font-size: 0.95rem;
+  }
+  /* Hide brand text if extremely tight — keep logo */
+  .page-header {
+    margin-bottom: 1rem;
+  }
+  .stat-card {
+    padding: 0.75rem 0.65rem;
+  }
+  .stat-card .stat-value {
+    font-size: 1.1rem;
+  }
+  .btn-primary-app, .btn-outline-app {
+    font-size: 0.85rem;
+  }
+  /* Practice button full width on xs when stacked */
+  .card-app .d-flex.flex-wrap {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .card-app .d-flex.flex-wrap .btn-primary-app {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Charts responsive */
+@media (max-width: 767.98px) {
+  canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}

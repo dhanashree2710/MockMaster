@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2B5748">
+  <meta name="description" content="MOCKMASTER — AI Interview Preparation. Practice smart. Interview confidently.">
+  <title>MOCKMASTER — AI Interview Coach</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sage: #9CB080;
+      --forest: #618764;
+      --deep: #2B5748;
+      --ink: #273338;
+      --white: #ffffff;
+      --muted: #5c6b64;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--ink);
+      color: var(--white);
+      overflow-x: hidden;
+    }
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 1rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background 0.3s, backdrop-filter 0.3s, box-shadow 0.3s;
+    }
+    .nav.scrolled {
+      background: rgba(39, 51, 56, 0.88);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 0.65rem;
+      text-decoration: none; color: var(--white);
+      font-weight: 800; font-size: 1.15rem; letter-spacing: -0.02em;
+    }
+    .nav-logo {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--white); padding: 4px; object-fit: contain;
+    }
+    .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .btn-ghost {
+      background: transparent; border: 1.5px solid rgba(156,176,128,0.4);
+      color: var(--white); padding: 0.5rem 1.15rem; border-radius: 999px;
+      font-weight: 600; font-size: 0.88rem; text-decoration: none; transition: all 0.25s;
+    }
+    .btn-ghost:hover { border-color: var(--sage); background: rgba(156,176,128,0.12); color: var(--white); }
+    .btn-solid {
+      background: linear-gradient(135deg, var(--forest), var(--deep));
+      border: none; color: var(--white); padding: 0.55rem 1.35rem; border-radius: 999px;
+      font-weight: 700; font-size: 0.88rem; text-decoration: none;
+      box-shadow: 0 4px 16px rgba(43,87,72,0.4); transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-solid:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(43,87,72,0.5); color: var(--white); }
+
+    .hero {
+      min-height: 100vh; min-height: 100dvh;
+      display: flex; align-items: center; position: relative;
+      padding: 6rem 1.5rem 4rem; overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 20% 30%, rgba(156,176,128,0.25) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 45% at 85% 70%, rgba(97,135,100,0.2) 0%, transparent 50%),
+        linear-gradient(165deg, #273338 0%, #1e3d34 40%, #2B5748 100%);
+    }
+    .hero-bg::after {
+      content: ''; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%239CB080' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      animation: gridDrift 40s linear infinite;
+    }
+    @keyframes gridDrift { from { transform: translate(0,0); } to { transform: translate(-60px,-60px); } }
+    .orb {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3;
+      animation: float 16s ease-in-out infinite;
+    }
+    .orb-1 { width: 360px; height: 360px; background: var(--sage); top: -80px; left: -100px; }
+    .orb-2 { width: 280px; height: 280px; background: var(--forest); bottom: -60px; right: -80px; animation-delay: -6s; }
+    @keyframes float {
+      0%,100% { transform: translate(0,0) scale(1); }
+      50% { transform: translate(20px,-30px) scale(1.05); }
+    }
+    .hero-inner {
+      position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; width: 100%;
+      display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 3rem; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(156,176,128,0.15); border: 1px solid rgba(156,176,128,0.3);
+      color: var(--sage); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 0.4rem 0.9rem; border-radius: 999px;
+      margin-bottom: 1.25rem; animation: fadeUp 0.7s var(--ease) both;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 5vw, 3.6rem); font-weight: 900; line-height: 1.1;
+      letter-spacing: -0.03em; margin-bottom: 1.15rem;
+      animation: fadeUp 0.7s 0.1s var(--ease) both;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--sage), #c5d4a8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-desc {
+      font-size: 1.1rem; line-height: 1.65; color: rgba(255,255,255,0.72);
+      max-width: 480px; margin-bottom: 1.75rem;
+      animation: fadeUp 0.7s 0.2s var(--ease) both;
+    }
+    .hero-ctas {
+      display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 2rem;
+      animation: fadeUp 0.7s 0.3s var(--ease) both;
+    }
+    .btn-hero {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.85rem 1.6rem; border-radius: 14px;
+      font-weight: 700; font-size: 0.95rem; text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.25s;
+    }
+    .btn-hero-primary {
+      background: linear-gradient(135deg, var(--sage), var(--forest));
+      color: var(--ink); box-shadow: 0 8px 28px rgba(156,176,128,0.35);
+    }
+    .btn-hero-primary:hover {
+      transform: translateY(-3px); box-shadow: 0 14px 36px rgba(156,176,128,0.45); color: var(--ink);
+    }
+    .btn-hero-secondary {
+      background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.2); color: var(--white);
+    }
+    .btn-hero-secondary:hover { background: rgba(255,255,255,0.14); color: var(--white); transform: translateY(-2px); }
+    .hero-stats {
+      display: flex; gap: 2rem; animation: fadeUp 0.7s 0.4s var(--ease) both;
+    }
+    .stat-num { font-size: 1.5rem; font-weight: 800; color: var(--sage); line-height: 1.2; }
+    .stat-label { font-size: 0.78rem; color: rgba(255,255,255,0.55); font-weight: 500; }
+
+    .hero-visual { position: relative; animation: fadeUp 0.8s 0.25s var(--ease) both; }
+    .preview-card {
+      background: rgba(255,255,255,0.97); border-radius: 22px; padding: 1.5rem;
+      color: var(--ink); box-shadow: 0 32px 64px rgba(0,0,0,0.3);
+      max-width: 380px; margin: 0 auto; position: relative; z-index: 2;
+    }
+    .preview-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.15rem; }
+    .preview-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--forest), var(--deep));
+      display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;
+    }
+    .preview-msg {
+      background: #f0f4ef; border-radius: 14px; padding: 0.9rem 1rem;
+      font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.85rem;
+    }
+    .preview-badge {
+      display: inline-block; background: linear-gradient(135deg, var(--forest), var(--deep));
+      color: white; font-size: 0.72rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 999px;
+    }
+    .float-chip {
+      position: absolute; background: rgba(255,255,255,0.95); color: var(--ink);
+      font-size: 0.75rem; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 999px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 0.35rem;
+      animation: chipFloat 4s ease-in-out infinite; z-index: 3;
+    }
+    .chip-1 { top: -12px; right: 10%; }
+    .chip-2 { bottom: 20%; left: -20px; animation-delay: -1.5s; }
+    .chip-3 { bottom: -8px; right: 5%; animation-delay: -3s; }
+    @keyframes chipFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section { padding: 5rem 1.5rem; position: relative; }
+    .section-light { background: #f4f7f4; color: var(--ink); }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--forest); margin-bottom: 0.6rem;
+    }
+    .section-title {
+      font-size: clamp(1.75rem, 3.5vw, 2.4rem); font-weight: 800;
+      letter-spacing: -0.02em; margin-bottom: 0.75rem;
+    }
+    .section-desc {
+      font-size: 1.05rem; color: var(--muted); max-width: 520px;
+      margin-bottom: 2.5rem; line-height: 1.6;
+    }
+    .flow-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem;
+    }
+    .flow-card {
+      background: var(--white); border-radius: 18px; padding: 1.5rem;
+      border: 1px solid rgba(43,87,72,0.08); box-shadow: 0 4px 20px rgba(39,51,56,0.06);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .flow-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(39,51,56,0.12); }
+    .flow-num {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--forest), var(--deep));
+      color: white; font-weight: 800; font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;
+    }
+    .flow-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .flow-card p { font-size: 0.88rem; color: var(--muted); line-height: 1.55; }
+
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;
+    }
+    .feature-card {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(156,176,128,0.15);
+      border-radius: 20px; padding: 1.75rem;
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .feature-card:hover {
+      background: rgba(156,176,128,0.1); border-color: rgba(156,176,128,0.35); transform: translateY(-4px);
+    }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(156,176,128,0.25), rgba(97,135,100,0.2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; color: var(--sage); margin-bottom: 1.1rem;
+    }
+    .feature-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.45rem; }
+    .feature-card p { font-size: 0.9rem; color: rgba(255,255,255,0.6); line-height: 1.55; }
+
+    .cta-section {
+      padding: 5rem 1.5rem; text-align: center; position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content: ''; position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 50%, rgba(156,176,128,0.2) 0%, transparent 60%),
+        linear-gradient(160deg, #1e3d34, #273338);
+    }
+    .cta-inner { position: relative; z-index: 2; max-width: 600px; margin: 0 auto; }
+    .cta-inner h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800; margin-bottom: 0.85rem; }
+    .cta-inner p { color: rgba(255,255,255,0.65); font-size: 1.05rem; margin-bottom: 1.75rem; line-height: 1.6; }
+
+    .footer {
+      padding: 2rem 1.5rem;
+      border-top: 1px solid rgba(156,176,128,0.12);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.45);
+      line-height: 1.5;
+    }
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .footer-brand img {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: #fff;
+      padding: 2px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+    .footer a { color: rgba(255,255,255,0.55); text-decoration: none; transition: color 0.2s; }
+    .footer a:hover { color: var(--sage); }
+    .footer .brand-name {
+      font-weight: 700;
+      background: linear-gradient(135deg, #9CB080, #618764);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .footer .designer-name {
+      font-weight: 600;
+      color: #9CB080;
+    }
+    .footer .footer-sep { opacity: 0.5; }
+    @media (max-width: 560px) {
+      .footer .footer-sep { display: none; }
+    }
+
+    /* Tablet */
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .hero-desc { margin-left: auto; margin-right: auto; }
+      .hero-ctas { justify-content: center; }
+      .hero-stats { justify-content: center; }
+      .hero-visual { order: -1; margin-bottom: 1rem; }
+      .preview-card { max-width: 320px; }
+      .chip-2 { left: 0; }
+      .footer {
+        justify-content: center;
+        text-align: center;
+        gap: 0.85rem;
+        padding: 1.75rem 1.25rem;
+      }
+      .footer-brand { justify-content: center; }
+      .footer-links { justify-content: center; gap: 1rem; }
+    }
+
+    /* Mobile */
+    @media (max-width: 560px) {
+      .nav { padding: 0.85rem 1rem; }
+      .hero { padding: 5.5rem 1rem 3rem; }
+      .hero-stats { gap: 1.25rem; }
+      .stat-num { font-size: 1.25rem; }
+      .btn-ghost { display: none; }
+      .section { padding: 3.5rem 1rem; }
+      .float-chip { font-size: 0.7rem; padding: 0.35rem 0.65rem; }
+      .footer {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.65rem;
+        padding: 1.5rem 1rem;
+        font-size: 0.75rem;
+      }
+      .footer-brand {
+        flex-direction: column;
+        gap: 0.4rem;
+        text-align: center;
+      }
+      .footer-links {
+        justify-content: center;
+        gap: 0.85rem;
+        font-size: 0.8rem;
+      }
+    }
+
+    /* Extra small */
+    @media (max-width: 380px) {
+      .footer { font-size: 0.68rem; padding: 1.25rem 0.75rem; }
+      .footer-links { gap: 0.65rem; }
+    }
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MockMaster">
+  <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <a href="index.html" class="nav-brand">
+      <img src="assets/images/mockmaster-logo.png" alt="MockMaster" class="nav-logo">
+      MOCKMASTER
+    </a>
+    <div class="nav-actions">
+      <a href="pages/login.html" class="btn-ghost">Log in</a>
+      <a href="pages/login.html" class="btn-solid">Get Started</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+    </div>
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="hero-badge"><i class="bi bi-stars"></i> AI Interview Coach</div>
+        <h1>Practice Smart.<br><span>Interview Confidently.</span></h1>
+        <p class="hero-desc">
+          Upload your resume, match any job role, and train with an AI interviewer that knows your background — then get a scored report that shows exactly how to improve.
+        </p>
+        <div class="hero-ctas">
+          <a href="pages/login.html" class="btn-hero btn-hero-primary">Start Free <i class="bi bi-arrow-right"></i></a>
+          <a href="#how-it-works" class="btn-hero btn-hero-secondary">See How It Works</a>
+        </div>
+        <div class="hero-stats">
+          <div><div class="stat-num">10+</div><div class="stat-label">Languages</div></div>
+          <div><div class="stat-num">AI</div><div class="stat-label">Mock Interviews</div></div>
+          <div><div class="stat-num">Full</div><div class="stat-label">Feedback Report</div></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="float-chip chip-1"><i class="bi bi-check-circle-fill" style="color:#618764"></i> Skill match 87%</div>
+        <div class="float-chip chip-2"><i class="bi bi-mic-fill" style="color:#618764"></i> Live AI interview</div>
+        <div class="float-chip chip-3"><i class="bi bi-graph-up-arrow" style="color:#618764"></i> Score + tips</div>
+        <div class="preview-card">
+          <div class="preview-header">
+            <div class="preview-avatar"><i class="bi bi-robot"></i></div>
+            <div>
+              <strong style="font-size:0.9rem;display:block">AI Interviewer</strong>
+              <small style="color:#5c6b64">Professional · Medium</small>
+            </div>
+          </div>
+          <div class="preview-msg">
+            “I noticed from your resume that you built an E-commerce Dashboard. Can you walk me through your role and the biggest challenge you faced?”
+          </div>
+          <div style="text-align:right"><span class="preview-badge">Question 2 of 10</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-light" id="how-it-works">
+    <div class="section-inner">
+      <div class="section-label">The journey</div>
+      <h2 class="section-title">From resume to interview-ready</h2>
+      <p class="section-desc">A clear path powered by AI — structured for real results, not generic tips.</p>
+      <div class="flow-grid">
+        <div class="flow-card"><div class="flow-num">1</div><h3>Login &amp; Upload</h3><p>Create your account and upload your resume (PDF/DOC). We process it securely.</p></div>
+        <div class="flow-card"><div class="flow-num">2</div><h3>AI Structuring</h3><p>Parsers extract resume data, job details, skills, and gaps into a clean profile.</p></div>
+        <div class="flow-card"><div class="flow-num">3</div><h3>Personalized Prep</h3><p>Get a preparation plan tailored to your role, strengths, and skill gaps.</p></div>
+        <div class="flow-card"><div class="flow-num">4</div><h3>AI Mock Interview</h3><p>Practice with realistic questions that know your background and target job.</p></div>
+        <div class="flow-card"><div class="flow-num">5</div><h3>Evaluation Engine</h3><p>Your answers are scored on clarity, relevance, depth, and delivery.</p></div>
+        <div class="flow-card"><div class="flow-num">6</div><h3>Final AI Report</h3><p>Receive actionable feedback and a clear path to improve before the real day.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="section-inner">
+      <div class="section-label" style="color:var(--sage)">Why MockMaster</div>
+      <h2 class="section-title">Built for serious preparation</h2>
+      <p class="section-desc" style="color:rgba(255,255,255,0.55)">Everything you need between “I applied” and “I got the offer.”</p>
+      <div class="features-grid">
+        <div class="feature-card"><div class="feature-icon"><i class="bi bi-file-earmark-person"></i></div><h3>Resume-aware questions</h3><p>Interviews reference your real projects and experience — not generic bank questions.</p></div>
+        <div class="feature-card"><div class="feature-icon"><i class="bi bi-briefcase"></i></div><h3>Job-role matching</h3><p>Paste any JD. We map skills, highlight gaps, and focus practice where it matters.</p></div>
+        <div class="feature-card"><div class="feature-icon"><i class="bi bi-chat-dots"></i></div><h3>Realistic AI interviews</h3><p>Conversational mock sessions that adapt difficulty and follow up on your answers.</p></div>
+        <div class="feature-card"><div class="feature-icon"><i class="bi bi-clipboard-data"></i></div><h3>Scored reports</h3><p>Clear scores plus concrete tips so you know exactly what to improve next.</p></div>
+        <div class="feature-card"><div class="feature-icon"><i class="bi bi-translate"></i></div><h3>Multi-language support</h3><p>Practice in the language you’ll interview in — built for global candidates.</p></div>
+        <div class="feature-card"><div class="feature-icon"><i class="bi bi-phone"></i></div><h3>Works everywhere</h3><p>Responsive design from desktop to mobile so you can practice on any device.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="cta-inner">
+      <h2>Ready to master your next interview?</h2>
+      <p>Join MockMaster and turn preparation into confidence — with AI that actually knows your story.</p>
+      <a href="pages/login.html" class="btn-hero btn-hero-primary" style="font-size:1rem;padding:0.95rem 1.8rem;">
+        Create free account <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer">
+      <div class="footer-brand">
+        <img src="assets/images/mockmaster-logo.png" alt="MockMaster">
+        <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved. <span class="footer-sep">|</span> Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+      </div>
+      <div class="footer-links">
+        <a href="pages/login.html">Login</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#features">Features</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('SW', e); });
+      });
+    }
+  </script>
+
+  <div id="mmInstallBar" style="display:none;position:fixed;left:12px;right:12px;bottom:16px;z-index:2000;background:#273338;border:1px solid rgba(156,176,128,.35);border-radius:16px;padding:12px 14px;box-shadow:0 12px 32px rgba(0,0,0,.4);color:#f4f6f3;font-family:system-ui,sans-serif;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <strong style="color:#9CB080;">Install MockMaster</strong>
+        <div style="font-size:13px;opacity:.85;margin-top:2px;">Add to your phone home screen for app-like use.</div>
+      </div>
+      <button type="button" id="mmInstallBtn" style="background:linear-gradient(135deg,#618764,#2B5748);color:#fff;border:none;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;">Install</button>
+      <button type="button" id="mmInstallDismiss" style="background:transparent;border:none;color:#9CB080;cursor:pointer;font-size:18px;line-height:1;" aria-label="Dismiss">×</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var deferred = null;
+      var bar = document.getElementById('mmInstallBar');
+      var btn = document.getElementById('mmInstallBtn');
+      var dismiss = document.getElementById('mmInstallDismiss');
+      if (!bar) return;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferred = e;
+        if (!localStorage.getItem('mm_install_dismissed')) bar.style.display = 'block';
+      });
+      if (btn) btn.addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.finally(function () { deferred = null; bar.style.display = 'none'; });
+      });
+      if (dismiss) dismiss.addEventListener('click', function () {
+        bar.style.display = 'none';
+        try { localStorage.setItem('mm_install_dismissed', '1'); } catch (e) {}
+      });
+      window.addEventListener('appinstalled', function () { bar.style.display = 'none'; });
+    })();
+  </script>
+
+</body>
+</html>

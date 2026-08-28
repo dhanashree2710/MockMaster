@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2B5748">
+  <title>Rewards Store — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../assets/css/variables.css" rel="stylesheet">
+  <link href="../assets/css/style.css" rel="stylesheet">
+  <link href="../assets/css/responsive.css" rel="stylesheet">
+  <style>
+    .rewards-hero {
+      background: linear-gradient(145deg, #273338 0%, #2B5748 55%, #1e3d33 100%);
+      border-radius: 20px;
+      padding: 1.5rem 1.5rem 1.35rem;
+      color: #fff;
+      border: 1px solid rgba(156,176,128,0.25);
+      margin-bottom: 1.5rem;
+    }
+    .rewards-hero .balance {
+      font-size: 2rem; font-weight: 800; color: #9CB080;
+    }
+    .reward-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      height: 100%;
+      display: flex; flex-direction: column;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .reward-card:hover {
+      border-color: rgba(97,135,100,0.5);
+      box-shadow: var(--shadow);
+    }
+    .reward-card .tag {
+      display: inline-block;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem; border-radius: 6px;
+      margin-bottom: 0.65rem;
+    }
+    .tag-popular { background: rgba(156,176,128,0.2); color: #2B5748; }
+    .tag-audio { background: rgba(97,135,100,0.2); color: #2B5748; }
+    .tag-ats { background: rgba(43,87,72,0.15); color: #2B5748; }
+    .tag-pack { background: rgba(156,176,128,0.25); color: #1e3d33; }
+    .reward-cost {
+      font-weight: 700; color: var(--primary); font-size: 0.9rem;
+    }
+    .reward-card .btn-redeem {
+      margin-top: auto;
+      background: linear-gradient(135deg, #618764, #2B5748);
+      color: #fff; border: none; border-radius: 12px;
+      padding: 0.7rem 1rem; font-weight: 700; width: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .reward-card .btn-redeem:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(43,87,72,0.35);
+      color: #fff;
+    }
+    .reward-card .btn-redeem:disabled {
+      opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none;
+    }
+    .reward-card.is-owned {
+      border-color: #9CB080;
+      background: linear-gradient(180deg, rgba(156,176,128,0.08), var(--surface));
+    }
+    .tab-btn {
+      border: 1px solid var(--border); background: var(--surface);
+      border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer;
+    }
+    .tab-btn.active {
+      background: var(--gradient-primary); color: #fff; border-color: transparent;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar-app">
+    <a href="dashboard.html" class="navbar-brand-app">
+      <img src="../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img">
+      MockMaster
+    </a>
+    <div class="navbar-actions">
+      <button class="btn-ghost" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
+      <a href="dashboard.html" class="btn-outline-app btn-sm">Dashboard</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-content">
+      <div class="rewards-hero">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <img src="../assets/images/mockmaster-logo.png" alt="" style="width:36px;height:36px;border-radius:8px;background:#fff;padding:2px;">
+              <div>
+                <h1 class="h5 fw-bold mb-0 text-white">Candidate Rewards Store</h1>
+                <p class="small mb-0" style="color:rgba(156,176,128,0.8)">Redeem credits for premium AI analytics</p>
+              </div>
+            </div>
+          </div>
+          <div class="text-end">
+            <div class="small" style="color:rgba(255,255,255,0.55)">Your Balance</div>
+            <div class="balance"><span id="creditBalance">0</span> <span class="fs-6 fw-semibold">Credits</span></div>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" class="tab-btn active" data-tab="catalog">Rewards Catalog</button>
+          <button type="button" class="tab-btn" data-tab="history">Points History</button>
+        </div>
+      </div>
+
+      <div id="tabCatalog">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <span class="text-muted small">Available Premium Reports &amp; AI Upgrades</span>
+          <span class="small fw-semibold" style="color:var(--primary)">Earn more by completing mock interviews</span>
+        </div>
+        <div class="row g-3" id="rewardsGrid"></div>
+      </div>
+
+      <div id="tabHistory" class="d-none">
+        <div class="card-app">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Credits History</h6>
+            <div id="historyList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+    <div class="dock-bead" aria-hidden="true"><i class="bi bi-grid-1x2"></i></div>
+    <a href="dashboard.html" aria-label="Home"><i class="bi bi-grid-1x2"></i><span>Home</span></a><a href="resume/upload-resume.html" aria-label="Resume"><i class="bi bi-file-earmark-person"></i><span>Resume</span></a><a href="interview/interview-setup.html" aria-label="Interview"><i class="bi bi-mic"></i><span>Interview</span></a><a href="progress.html" aria-label="Progress"><i class="bi bi-graph-up"></i><span>Progress</span></a><a href="profile.html" aria-label="Profile"><i class="bi bi-person"></i><span>Profile</span></a>
+  </nav>
+
+  <footer class="site-footer">
+    <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved.</span>
+    <span class="footer-sep">|</span>
+    <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/utils.js"></script>
+  <script>
+    const REWARDS = [
+      {
+        id: 'exec360',
+        tag: 'Most Popular', tagClass: 'tag-popular',
+        cost: 150,
+        title: 'Executive 360° AI Interview Breakdown',
+        desc: 'Comprehensive analysis of your interview transcript with line-by-line sentiment, executive presence scoring, and STAR metrics.',
+        href: 'rewards/exec-360.html'
+      },
+      {
+        id: 'voiceReplay',
+        tag: 'Audio AI', tagClass: 'tag-audio',
+        cost: 200,
+        title: 'Live AI Voice Tone & Pace Replay',
+        desc: 'Speech pace audit (WPM), filler-word detection, pitch stability analysis, and conversational confidence heatmap.',
+        href: 'rewards/voice-analysis.html'
+      },
+      {
+        id: 'atsOptimizer',
+        tag: 'ATS Scanner', tagClass: 'tag-ats',
+        cost: 120,
+        title: '1-on-1 AI Resume & ATS Alignment Optimizer',
+        desc: 'Deep scan between your resume keywords and the job description. Highlights missing skills, ATS gaps, and bullet rewrites.',
+        href: 'rewards/ats-optimizer.html'
+      },
+      {
+        id: 'tier1Pack',
+        tag: 'Premium Pack', tagClass: 'tag-pack',
+        cost: 250,
+        title: 'Tier-1 Tech Insider Question Pack',
+        desc: 'Curated top 30 real-world behavioral and system architecture questions recently asked at Google, Stripe, Meta, and Microsoft.',
+        href: 'rewards/tier1-pack.html'
+      }
+    ];
+
+    function refreshBalance() {
+      document.getElementById('creditBalance').textContent = Utils.getCredits();
+    }
+
+    function renderCatalog() {
+      const owned = Utils.getRedeemed();
+      const bal = Utils.getCredits();
+      document.getElementById('rewardsGrid').innerHTML = REWARDS.map(r => {
+        const isOwned = owned.includes(r.id);
+        const canBuy = bal >= r.cost && !isOwned;
+        return `
+          <div class="col-md-6">
+            <div class="reward-card ${isOwned ? 'is-owned' : ''}">
+              <div class="d-flex justify-content-between align-items-start">
+                <span class="tag ${r.tagClass}">${r.tag}</span>
+                <span class="reward-cost"><i class="bi bi-coin me-1"></i>${r.cost}</span>
+              </div>
+              <h5 class="fw-bold mb-2">${r.title}</h5>
+              <p class="text-muted small mb-3">${r.desc}</p>
+              ${isOwned
+                ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Use now</a>`
+                : `<button class="btn-redeem" data-id="${r.id}" data-cost="${r.cost}" ${canBuy ? '' : 'disabled'}>
+                    <i class="bi bi-stars me-1"></i> Redeem for ${r.cost} Pts
+                  </button>`}
+            </div>
+          </div>`;
+      }).join('');
+
+      document.querySelectorAll('.btn-redeem[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          const cost = Number(btn.dataset.cost);
+          const item = REWARDS.find(x => x.id === id);
+          if (!Utils.spendCredits(cost, 'Redeem: ' + (item?.title || id))) {
+            Utils.showToast('Not enough credits. Complete more interviews!', 'warning');
+            return;
+          }
+          Utils.markRedeemed(id);
+          Utils.showToast('Unlocked: ' + item.title, 'success');
+          refreshBalance();
+          renderCatalog();
+          if (item.href && confirm('Unlocked! Open this reward now?')) {
+            location.href = item.href;
+          }
+        });
+      });
+    }
+
+    function renderHistory() {
+      const hist = Utils.getCreditsHistory();
+      const el = document.getElementById('historyList');
+      if (!hist.length) {
+        el.innerHTML = '<p class="text-muted mb-0">No credit activity yet. Earn points by answering interview questions.</p>';
+        return;
+      }
+      el.innerHTML = hist.map(h => `
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2" style="border-color:var(--border)!important;">
+          <div>
+            <div class="fw-semibold small">${h.reason}</div>
+            <div class="text-muted" style="font-size:0.75rem;">${Utils.formatDate(h.at)}</div>
+          </div>
+          <div class="fw-bold" style="color:${h.amount >= 0 ? 'var(--success)' : 'var(--danger)'}">
+            ${h.amount >= 0 ? '+' : ''}${h.amount}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('tabCatalog').classList.toggle('d-none', tab !== 'catalog');
+        document.getElementById('tabHistory').classList.toggle('d-none', tab !== 'history');
+        if (tab === 'history') renderHistory();
+      });
+    });
+
+    refreshBalance();
+    renderCatalog();
+  </script>
+  <script src="../assets/js/auth-guard.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2B5748">
+  <title>Interview History — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../assets/css/variables.css" rel="stylesheet">
+  <link href="../../assets/css/style.css" rel="stylesheet">
+  <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <style>
+    .history-filters { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.25rem; }
+    .filter-chip { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:999px; padding:0.35rem 0.9rem; font-size:0.8rem; font-weight:600; cursor:pointer; }
+    .filter-chip.active { background:var(--gradient-primary); color:#fff; border-color:transparent; }
+    .history-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.15rem 1.25rem; margin-bottom:0.85rem; }
+    .history-card:hover { border-color:rgba(97,135,100,0.45); box-shadow:var(--shadow); }
+    .score-pill { min-width:64px; height:64px; border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:800; font-size:1.25rem; background:rgba(156,176,128,0.12); }
+    .score-pill small { font-size:0.65rem; font-weight:600; opacity:0.75; }
+    .history-meta { display:flex; flex-wrap:wrap; gap:0.65rem 1rem; font-size:0.8rem; color:var(--text-muted); margin-top:0.35rem; }
+    .history-actions { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.85rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar-app">
+    <button class="btn-ghost d-lg-none me-2" data-bs-toggle="offcanvas" data-bs-target="#mobileNav"><i class="bi bi-list fs-5"></i></button>
+    <a href="../dashboard.html" class="navbar-brand-app">
+      <img src="../../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img">
+      MockMaster
+    </a>
+    <div class="navbar-actions">
+      <button class="btn-ghost" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
+      <a href="../rewards.html" class="btn-outline-app btn-sm"><i class="bi bi-coin me-1"></i><span id="navCredits">0</span></a>
+      <a href="interview-setup.html" class="btn-primary-app btn-sm d-none d-sm-inline-flex">New Interview</a>
+    </div>
+  </nav>
+  <aside class="sidebar d-none d-lg-block">
+    <nav class="nav flex-column">
+      <div class="nav-section">Main</div>
+      <a class="nav-link" href="../dashboard.html"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+      <a class="nav-link" href="../resume/upload-resume.html"><i class="bi bi-file-earmark-person"></i> Resume</a>
+      <a class="nav-link" href="../job/job-description.html"><i class="bi bi-briefcase"></i> Job Match</a>
+      <a class="nav-link" href="../preparation/preparation-plan.html"><i class="bi bi-journal-check"></i> Preparation</a>
+      <a class="nav-link" href="interview-setup.html"><i class="bi bi-mic"></i> AI Interview</a>
+      <div class="nav-section">Insights</div>
+      <a class="nav-link active" href="interview-history.html"><i class="bi bi-clock-history"></i> History</a>
+      <a class="nav-link" href="../progress.html"><i class="bi bi-graph-up"></i> Progress</a>
+      <a class="nav-link" href="../rewards.html"><i class="bi bi-gift"></i> Rewards</a>
+      <div class="nav-section">Account</div>
+      <a class="nav-link" href="../profile.html"><i class="bi bi-person"></i> Profile</a>
+      <a class="nav-link" href="../settings.html"><i class="bi bi-gear"></i> Settings</a>
+    </nav>
+  </aside>
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileNav">
+    <div class="offcanvas-header"><h5 class="offcanvas-title fw-bold">MockMaster</h5><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div>
+    <div class="offcanvas-body"><nav class="nav flex-column">
+      <a class="nav-link" href="../dashboard.html">Dashboard</a>
+      <a class="nav-link active" href="interview-history.html">History</a>
+      <a class="nav-link" href="../progress.html">Progress</a>
+      <a class="nav-link" href="../rewards.html">Rewards</a>
+    </nav></div>
+  </div>
+  <main class="main-content has-sidebar">
+    <div class="page-content">
+      <div class="page-header"><h1>Interview History</h1><p>Review past mock interviews and track improvement.</p></div>
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-icon" style="background:rgba(43,87,72,0.12);color:var(--primary);"><i class="bi bi-mic"></i></div><div><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-icon" style="background:var(--success-bg);color:var(--success);"><i class="bi bi-graph-up"></i></div><div><div class="stat-value" id="statAvg">—</div><div class="stat-label">Average</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-icon" style="background:var(--info-bg);color:var(--info);"><i class="bi bi-trophy"></i></div><div><div class="stat-value" id="statBest">—</div><div class="stat-label">Best</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-icon" style="background:var(--warning-bg);color:var(--warning);"><i class="bi bi-clock"></i></div><div><div class="stat-value" id="statTime">—</div><div class="stat-label">Practice time</div></div></div></div>
+      </div>
+      <div class="history-filters" id="historyFilters">
+        <button type="button" class="filter-chip active" data-filter="all">All</button>
+        <button type="button" class="filter-chip" data-filter="high">High (≥80)</button>
+        <button type="button" class="filter-chip" data-filter="mid">Medium (60–79)</button>
+        <button type="button" class="filter-chip" data-filter="low">Needs work (&lt;60)</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </main>
+  <footer class="site-footer">
+    <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved.</span>
+    <span class="footer-sep">|</span>
+    <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+  </footer>
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+    <div class="dock-bead" aria-hidden="true"><i class="bi bi-grid-1x2"></i></div>
+    <a href="../dashboard.html" aria-label="Home"><i class="bi bi-grid-1x2"></i><span>Home</span></a><a href="../resume/upload-resume.html" aria-label="Resume"><i class="bi bi-file-earmark-person"></i><span>Resume</span></a><a href="../interview/interview-setup.html" class="active" aria-label="Interview"><i class="bi bi-mic"></i><span>Interview</span></a><a href="../progress.html" aria-label="Progress"><i class="bi bi-graph-up"></i><span>Progress</span></a><a href="../profile.html" aria-label="Profile"><i class="bi bi-person"></i><span>Profile</span></a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/js/config.js"></script>
+  <script src="../../assets/js/theme.js"></script>
+  <script src="../../assets/js/utils.js"></script>
+  <script>
+    document.getElementById('navCredits').textContent = Utils.getCredits();
+    const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+    let activeFilter = 'all';
+    function formatDuration(sec) {
+      sec = Number(sec) || 0;
+      if (sec < 60) return sec + 's';
+      const m = Math.floor(sec / 60), s = sec % 60;
+      return s ? m + 'm ' + s + 's' : m + 'm';
+    }
+    function render() {
+      const el = document.getElementById('historyList');
+      let list = sessions;
+      if (activeFilter === 'high') list = sessions.filter(s => (s.score||0) >= 80);
+      if (activeFilter === 'mid') list = sessions.filter(s => (s.score||0) >= 60 && (s.score||0) < 80);
+      if (activeFilter === 'low') list = sessions.filter(s => (s.score||0) < 60);
+      document.getElementById('statTotal').textContent = sessions.length;
+      if (sessions.length) {
+        const scores = sessions.map(s => Number(s.score)||0);
+        document.getElementById('statAvg').textContent = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) + '%';
+        document.getElementById('statBest').textContent = Math.max(...scores) + '%';
+        document.getElementById('statTime').textContent = formatDuration(sessions.reduce((a,s)=>a+(Number(s.duration)||0),0));
+      }
+      if (!sessions.length) {
+        el.innerHTML = '<div class="card-app"><div class="card-body text-center py-5"><h5>No interviews yet</h5><p class="text-muted">Complete a mock interview to see history.</p><a href="interview-setup.html" class="btn-primary-app">Start Interview</a></div></div>';
+        return;
+      }
+      if (!list.length) {
+        el.innerHTML = '<div class="card-app"><div class="card-body text-center py-4 text-muted">No interviews match this filter.</div></div>';
+        return;
+      }
+      el.innerHTML = list.map(s => {
+        const score = Number(s.score)||0;
+        const color = Utils.scoreColor(score);
+        const idx = sessions.indexOf(s);
+        return `<div class="history-card">
+          <div class="d-flex gap-3">
+            <div class="score-pill" style="color:${color}">${score}%<small>score</small></div>
+            <div class="flex-grow-1">
+              <strong>${s.position || 'Interview'}</strong>
+              <span class="badge-app ${score>=80?'badge-success':score>=60?'badge-warning':'badge-danger'} ms-2">${Utils.readinessLabel(score)}</span>
+              <div class="history-meta">
+                <span><i class="bi bi-calendar3"></i> ${s.date ? Utils.formatDate(s.date) : '—'}</span>
+                <span><i class="bi bi-stopwatch"></i> ${formatDuration(s.duration)}</span>
+                ${s.difficulty ? '<span><i class="bi bi-speedometer2"></i> '+s.difficulty+'</span>' : ''}
+                ${s.style ? '<span><i class="bi bi-chat"></i> '+s.style+'</span>' : ''}
+                ${(s.numQuestions||s.answers?.length) ? '<span><i class="bi bi-list-ol"></i> '+(s.numQuestions||s.answers.length)+' Qs</span>' : ''}
+              </div>
+              <div class="history-actions">
+                <button type="button" class="btn-outline-app btn-sm btn-view" data-idx="${idx}"><i class="bi bi-file-earmark-text me-1"></i>View Report</button>
+                <a href="interview-setup.html" class="btn-ghost btn-sm">Practice again</a>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      el.querySelectorAll('.btn-view').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const s = sessions[Number(btn.dataset.idx)];
+          if (!s) return;
+          sessionStorage.setItem('ipa_last_report', JSON.stringify({
+            overallScore: s.score, duration: s.duration, completedAt: s.date,
+            setup: { position: s.position, difficulty: s.difficulty, style: s.style, type: s.type, numQuestions: s.numQuestions },
+            answers: s.answers || []
+          }));
+          location.href = '../report/interview-report.html';
+        });
+      });
+    }
+    document.getElementById('historyFilters').addEventListener('click', e => {
+      const chip = e.target.closest('.filter-chip');
+      if (!chip) return;
+      activeFilter = chip.dataset.filter;
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+      render();
+    });
+    render();
+  </script>
+  <script src="../../assets/js/auth-guard.js"></script>
+  <script src="../../assets/js/app.js"></script>
+</body>
+</html>

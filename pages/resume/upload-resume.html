@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2B5748">
+  <title>Upload Resume — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../assets/css/variables.css" rel="stylesheet">
+  <link href="../../assets/css/style.css" rel="stylesheet">
+  <link href="../../assets/css/responsive.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar-app">
+    <a href="../dashboard.html" class="navbar-brand-app">
+      <img src="../../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img">
+      MockMaster
+    </a>
+    <div class="navbar-actions">
+      <button class="btn-ghost" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
+      <span class="text-muted small d-none d-sm-inline" data-user-name>User</span>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-content" style="max-width:720px;">
+      <!-- Steps -->
+      <div class="steps">
+        <div class="step active">
+          <div class="step-dot">1</div>
+          <div class="step-label">Resume</div>
+        </div>
+        <div class="step">
+          <div class="step-dot">2</div>
+          <div class="step-label">Job</div>
+        </div>
+        <div class="step">
+          <div class="step-dot">3</div>
+          <div class="step-label">Match</div>
+        </div>
+        <div class="step">
+          <div class="step-dot">4</div>
+          <div class="step-label">Prepare</div>
+        </div>
+      </div>
+
+      <div class="page-header text-center">
+        <h1>Upload Your Resume</h1>
+        <p>Upload your latest resume and let AI understand your professional profile.</p>
+      </div>
+
+      <div class="card-app elevated">
+        <div class="card-body p-4">
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
+            <h5 class="fw-bold mb-1">Drag & Drop Resume</h5>
+            <p class="text-muted small mb-3">or click to browse files</p>
+            <span class="badge-app badge-primary">PDF / DOC / DOCX</span>
+            <input type="file" id="resumeFile" accept=".pdf,.doc,.docx" hidden>
+          </div>
+
+          <div id="uploadedInfo" class="d-none mt-4">
+            <div class="d-flex align-items-center gap-3 p-3 rounded-app" style="background:var(--success-bg);">
+              <i class="bi bi-check-circle-fill text-success fs-4"></i>
+              <div class="flex-grow-1">
+                <strong class="d-block">Resume uploaded successfully</strong>
+                <span class="text-muted small" id="fileName">John_Doe_Resume.pdf</span>
+              </div>
+              <button class="btn-ghost" id="removeFile" title="Remove"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="text-center mt-4">
+              <button class="btn-primary-app btn-lg" id="analyzeBtn">
+                Analyze Resume <i class="bi bi-arrow-right ms-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-center text-muted small mt-3">
+        <i class="bi bi-shield-check me-1"></i> Your resume is processed securely and never shared.
+      </p>
+    </div>
+  </main>
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+    <div class="dock-bead" aria-hidden="true"><i class="bi bi-grid-1x2"></i></div>
+    <a href="../dashboard.html" aria-label="Home"><i class="bi bi-grid-1x2"></i><span>Home</span></a><a href="../resume/upload-resume.html" class="active" aria-label="Resume"><i class="bi bi-file-earmark-person"></i><span>Resume</span></a><a href="../interview/interview-setup.html" aria-label="Interview"><i class="bi bi-mic"></i><span>Interview</span></a><a href="../progress.html" aria-label="Progress"><i class="bi bi-graph-up"></i><span>Progress</span></a><a href="../profile.html" aria-label="Profile"><i class="bi bi-person"></i><span>Profile</span></a>
+  </nav>
+
+  <footer class="site-footer">
+    <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved.</span>
+    <span class="footer-sep">|</span>
+    <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+  </footer>
+
+
+  <!-- Analysis Overlay -->
+  <div class="loading-overlay d-none" id="analysisOverlay">
+    <div class="loading-card">
+      <div class="spinner-app"></div>
+      <h5 class="fw-bold mb-3">AI is analyzing your resume...</h5>
+      <div class="text-start" id="analysisSteps">
+        <div class="analysis-step" data-step="0"><i class="bi bi-circle"></i> Reading resume</div>
+        <div class="analysis-step" data-step="1"><i class="bi bi-circle"></i> Identifying skills</div>
+        <div class="analysis-step" data-step="2"><i class="bi bi-circle"></i> Detecting experience</div>
+        <div class="analysis-step" data-step="3"><i class="bi bi-circle"></i> Understanding education</div>
+        <div class="analysis-step" data-step="4"><i class="bi bi-circle"></i> Identifying projects</div>
+        <div class="analysis-step" data-step="5"><i class="bi bi-circle"></i> Preparing professional profile</div>
+      </div>
+    </div>
+  </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../assets/js/supabase-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/js/config.js"></script>
+  <script src="../../assets/js/firebase.js"></script>
+  <script src="../../assets/js/theme.js"></script>
+  <script src="../../assets/js/utils.js"></script>
+  <script src="../../assets/js/app.js"></script>
+  <script src="../../assets/js/resume-parser.js"></script>
+  <script>
+    const zone = document.getElementById('uploadZone');
+    const input = document.getElementById('resumeFile');
+    const uploadedInfo = document.getElementById('uploadedInfo');
+    const overlay = document.getElementById('analysisOverlay');
+
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
+
+    function handleFile(file) {
+      document.getElementById('fileName').textContent = file.name;
+      zone.classList.add('d-none');
+      uploadedInfo.classList.remove('d-none');
+    }
+
+    document.getElementById('removeFile').addEventListener('click', () => {
+      input.value = '';
+      zone.classList.remove('d-none');
+      uploadedInfo.classList.add('d-none');
+    });
+
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+      const file = input.files && input.files[0];
+      if (!file) {
+        if (window.Utils) Utils.showToast('Please select a resume file first', 'warning');
+        else alert('Please select a resume file first');
+        return;
+      }
+      overlay.classList.remove('d-none');
+      const steps = document.querySelectorAll('#analysisSteps .analysis-step');
+      for (let i = 0; i < steps.length; i++) {
+        await delay(600);
+        steps[i].classList.add('done');
+        steps[i].querySelector('i').className = 'bi bi-check-circle-fill';
+        if (i + 1 < steps.length) {
+          steps[i + 1].classList.add('active');
+          steps[i + 1].querySelector('i').className = 'bi bi-arrow-right-circle';
+        }
+      }
+
+      let parsed = null;
+      try {
+        if (window.ResumeParser) parsed = await ResumeParser.parseResumeFile(file);
+      } catch (err) { console.warn(err); }
+
+      // Prefer real extracted data — do NOT fill with John Doe mock when parse succeeds
+      let data;
+      if (parsed && parsed.extractedFromFile && (parsed.rawTextLength || 0) > 30) {
+        data = Object.assign({}, parsed, {
+          fileName: file.name,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString()
+        });
+      } else if (parsed) {
+        data = Object.assign({}, parsed, {
+          fileName: file.name,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          extractionNote: parsed.extractionNote || 'Limited data extracted from file.'
+        });
+      } else {
+        data = {
+          name: file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+          email: '', phone: '', location: '',
+          currentRole: '', experienceYears: 0, careerLevel: 'Entry-level',
+          industries: [],
+          skills: { technical: [], soft: [], tools: [], frameworks: [], languages: [] },
+          education: [], experience: [], projects: [],
+          fileName: file.name, fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          extractedFromFile: false,
+          extractionNote: 'Parser unavailable. Please try PDF or DOCX.'
+        };
+      }
+      console.info('[Upload] saved resume profile:', data.name, data.email, (data.skills && data.skills.technical) || []);
+      Utils.setStored(STORAGE_KEYS.resume, data);
+      // Persist to Supabase when logged in
+      try {
+        if (window.DB && DB.isConfigured && DB.isConfigured() && DB.getSession && DB.getSession()) {
+          const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+          const fileType = ['pdf','doc','docx'].includes(ext) ? ext : 'pdf';
+          const row = await DB.createResume({
+            fileName: file.name,
+            fileUrl: null,
+            fileType,
+            fileSizeBytes: file.size,
+            rawText: data.rawTextPreview || data.rawText || ''
+          });
+          if (row && row.id) {
+            data.id = row.id;
+            await DB.saveResumeProfile(row.id, {
+              full_name: data.name,
+              email: data.email,
+              phone: data.phone,
+              summary: data.currentRole || '',
+              experience_json: data.experience || [],
+              education_json: data.education || [],
+              skills_json: data.skills || {},
+              projects_json: data.projects || [],
+              years_experience: data.experienceYears || 0
+            });
+            Utils.setStored(STORAGE_KEYS.resume, data);
+          }
+        }
+      } catch (err) { console.warn('Supabase resume save', err); }
+
+      await delay(400);
+      location.href = 'resume-analysis.html';
+    });
+  </script>
+  <script src="../../assets/js/auth-guard.js"></script>
+</body>
+</html>
