@@ -10,6 +10,7 @@
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar-app">
@@ -106,14 +107,139 @@ Responsibilities: Build React apps, mentor juniors, improve performance..."></te
   <script src="../../assets/js/app.js"></script>
   <script>
     document.getElementById('jdZone')?.addEventListener('click', () => document.getElementById('jdFile').click());
+
+    // Simple client-side JD parser — extracts title, skills, experience from pasted text
+    function parseJobDescription(rawText) {
+      const text = (rawText || '').trim();
+      if (!text || text.length < 20) return null;
+
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const lower = text.toLowerCase();
+
+      // Position: first non-empty line that looks like a title, or "Job Title:" / "Role:" pattern
+      let position = '';
+      const titleMatch = text.match(/(?:job\s*title|position|role|designation)\s*[:\-–]\s*(.+)/i);
+      if (titleMatch) {
+        position = titleMatch[1].split(/\n|,/)[0].trim().slice(0, 80);
+      }
+      if (!position && lines[0] && lines[0].length < 80 && !/^(about|we are|company|description)/i.test(lines[0])) {
+        position = lines[0];
+      }
+      if (!position) position = 'Target Role';
+
+      // Experience
+      let experience = '';
+      const expMatch = text.match(/(\d+\s*[–\-to]+\s*\d+\+?\s*years?|\d+\+?\s*years?)/i);
+      if (expMatch) experience = expMatch[1];
+
+      // Company (optional)
+      let company = '';
+      const coMatch = text.match(/(?:company|organization|at)\s*[:\-–]\s*(.+)/i);
+      if (coMatch) company = coMatch[1].split(/\n/)[0].trim().slice(0, 60);
+
+      // Skills dictionary (broad coverage)
+      const skillDict = [
+        'JavaScript','TypeScript','Python','Java','C++','C#','PHP','Ruby','Swift','Kotlin','Go','Rust',
+        'React','Angular','Vue','Next.js','Node.js','Express','Django','Flask','Spring','Laravel','Flutter',
+        'HTML','CSS','SASS','Tailwind','Bootstrap','SQL','MySQL','PostgreSQL','MongoDB','Firebase','Redis',
+        'AWS','Azure','GCP','Docker','Kubernetes','Git','GitHub','CI/CD','Jenkins','Linux',
+        'REST','GraphQL','API','Microservices','Agile','Scrum','Jira','Figma','Postman',
+        'Excel','Power BI','Tableau','Looker','Pandas','NumPy','Machine Learning','Data Analysis','ETL',
+        'Communication','Leadership','Mentoring','Stakeholder','A/B Testing','KPI','CRM','Salesforce'
+      ];
+      const foundSkills = [];
+      skillDict.forEach(s => {
+        const re = new RegExp('\\b' + s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*') + '\\b', 'i');
+        if (re.test(text) && !foundSkills.some(f => f.toLowerCase() === s.toLowerCase())) {
+          foundSkills.push(s);
+        }
+      });
+      // Also pull comma/bullet lists after "Required" / "Skills"
+      const skillsBlock = text.match(/(?:required|must\s*have|skills?|qualifications?)\s*[:\-–]?\s*([\s\S]{10,400}?)(?:\n\n|preferred|responsib|about|$)/i);
+      if (skillsBlock) {
+        skillsBlock[1].split(/[,;•·\n|]/).forEach(part => {
+          const p = part.replace(/^[\-\*\d.\s]+/, '').trim();
+          if (p.length > 1 && p.length < 40 && !foundSkills.some(f => f.toLowerCase() === p.toLowerCase())) {
+            foundSkills.push(p);
+          }
+        });
+      }
+
+      // Responsibilities (bullet-like lines)
+      const responsibilities = [];
+      lines.forEach(line => {
+        if (/^[•\-\*●]\s+|^\d+[\.\)]\s+/.test(line) || /responsib/i.test(line)) {
+          const cleaned = line.replace(/^[•\-\*●\d.\)]\s*/, '').trim();
+          if (cleaned.length > 15 && cleaned.length < 200) responsibilities.push(cleaned);
+        }
+      });
+
+      return {
+        position,
+        company: company || '',
+        experience: experience || '',
+        skills: foundSkills.slice(0, 30),
+        requiredSkills: foundSkills.slice(0, 15),
+        preferredSkills: foundSkills.slice(15, 25),
+        responsibilities: responsibilities.slice(0, 12),
+        description: text.slice(0, 4000),
+        raw_text: text.slice(0, 6000),
+        analyzedAt: new Date().toISOString()
+      };
+    }
+
+    // Compute simple match against stored resume
+    function computeMatch(job, resume) {
+      if (!job || !resume) return { score: 0, matched: [], missing: [], partial: [] };
+      const resumeBlob = [
+        resume.currentRole || '',
+        ...(resume.skills?.technical || []),
+        ...(resume.skills?.soft || []),
+        ...(resume.skills?.tools || []),
+        ...(resume.competencies || []),
+        ...((resume.experience || []).flatMap(e => [e.role || '', ...(e.responsibilities || [])])),
+        ...((resume.projects || []).map(p => (p.name || '') + ' ' + (p.description || '')))
+      ].join(' ').toLowerCase();
+
+      const keywords = (job.skills || job.requiredSkills || []).map(s => String(s).trim()).filter(Boolean);
+      const matched = [];
+      const missing = [];
+      keywords.forEach(k => {
+        if (resumeBlob.includes(k.toLowerCase())) matched.push(k);
+        else missing.push(k);
+      });
+      const score = keywords.length ? Math.round((matched.length / keywords.length) * 100) : 50;
+      return { score, matched, missing, partial: [] };
+    }
+
     document.getElementById('analyzeJobBtn').addEventListener('click', async () => {
+      const raw = (document.getElementById('jdText')?.value || '').trim();
+      if (!raw || raw.length < 30) {
+        alert('Please paste a job description (at least a few lines) before analyzing.');
+        return;
+      }
       document.getElementById('jobOverlay').classList.remove('d-none');
-      Utils.setStored(STORAGE_KEYS.job, MOCK_JOB);
-      Utils.setStored(STORAGE_KEYS.match, MOCK_MATCH);
-      await delay(1800);
-      location.href = 'resume-job-match.html';
+      try {
+        const job = parseJobDescription(raw);
+        if (!job) {
+          alert('Could not parse the job description. Please paste more complete text.');
+          document.getElementById('jobOverlay').classList.add('d-none');
+          return;
+        }
+        Utils.setStored(STORAGE_KEYS.job, job);
+        const resume = Utils.getStored(STORAGE_KEYS.resume);
+        const match = computeMatch(job, resume);
+        Utils.setStored(STORAGE_KEYS.match, match);
+        await delay(800);
+        location.href = 'resume-job-match.html';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('jobOverlay').classList.add('d-none');
+        alert('Something went wrong analyzing the job. Please try again.');
+      }
     });
   </script>
   <script src="../../assets/js/auth-guard.js"></script>
+  <script src="../../assets/js/global-loader.js"></script>
 </body>
 </html>

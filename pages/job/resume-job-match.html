@@ -10,6 +10,7 @@
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar-app">
@@ -33,7 +34,7 @@
 
       <div class="page-header text-center">
         <h1>Resume Match Score</h1>
-        <p id="jobTitle">Senior Frontend Developer</p>
+        <p id="jobTitle">Target Role</p>
       </div>
 
       <div class="row g-4 justify-content-center">
@@ -106,15 +107,44 @@
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/app.js"></script>
   <script>
-    const match = Utils.getStored(STORAGE_KEYS.match, MOCK_MATCH);
-    const job = Utils.getStored(STORAGE_KEYS.job, MOCK_JOB);
-    document.getElementById('jobTitle').textContent = job.position || 'Target Role';
-    document.getElementById('matchCircle').style.setProperty('--score', match.score);
-    document.querySelector('#matchCircle .score-value').textContent = match.score + '%';
-    document.getElementById('matchedSkills').innerHTML = match.matched.map(s => `<span class="match-tag matched"><i class="bi bi-check"></i> ${s}</span>`).join('');
-    document.getElementById('missingSkills').innerHTML = match.missing.map(s => `<span class="match-tag missing"><i class="bi bi-exclamation"></i> ${s}</span>`).join('');
-    document.getElementById('partialSkills').innerHTML = match.partial.map(s => `<span class="match-tag partial"><i class="bi bi-dash"></i> ${s}</span>`).join('');
+    const match = Utils.getStored(STORAGE_KEYS.match, { score: 0, matched: [], missing: [], partial: [] });
+    const job = Utils.getStored(STORAGE_KEYS.job, null) || {};
+    const resume = Utils.getStored(STORAGE_KEYS.resume, null) || {};
+    const position = job.position || job.title || 'Target Role';
+    document.getElementById('jobTitle').textContent = position;
+    document.getElementById('matchCircle').style.setProperty('--score', match.score || 0);
+    document.querySelector('#matchCircle .score-value').textContent = (match.score || 0) + '%';
+    document.getElementById('matchedSkills').innerHTML = (match.matched || []).map(s => `<span class="match-tag matched"><i class="bi bi-check"></i> ${s}</span>`).join('') || '<span class="text-muted small">No matched skills detected yet.</span>';
+    document.getElementById('missingSkills').innerHTML = (match.missing || []).map(s => `<span class="match-tag missing"><i class="bi bi-exclamation"></i> ${s}</span>`).join('') || '<span class="text-muted small">No major gaps detected.</span>';
+    document.getElementById('partialSkills').innerHTML = (match.partial || []).map(s => `<span class="match-tag partial"><i class="bi bi-dash"></i> ${s}</span>`).join('') || '<span class="text-muted small">—</span>';
+
+    // Dynamic AI recommendations based on this job + match
+    const recBox = document.querySelector('.card-app.mt-4 .card-body');
+    if (recBox) {
+      const missing = match.missing || [];
+      const matched = match.matched || [];
+      let recText = '';
+      if (missing.length && matched.length) {
+        recText = 'Your resume shows relevant experience for the ' + position + ' role. Strengthen evidence for: ' +
+          missing.slice(0, 3).join(', ') + '. Clearly highlight: ' + matched.slice(0, 3).join(', ') + '.';
+      } else if (missing.length) {
+        recText = 'For the ' + position + ' role, prioritize learning or demonstrating: ' +
+          missing.slice(0, 4).join(', ') + '. Add short projects or examples for these skills on your resume.';
+      } else if (matched.length) {
+        recText = 'Strong alignment with the ' + position + ' role. Emphasize ' + matched.slice(0, 4).join(', ') +
+          ' in your stories and keep practicing role-specific interview questions.';
+      } else {
+        recText = 'Upload a clear job description and resume so we can tailor recommendations for the ' + position + ' role.';
+      }
+      const badges = [];
+      matched.slice(0, 3).forEach(s => badges.push('<span class="badge-app badge-primary">Highlight: ' + s + '</span>'));
+      missing.slice(0, 3).forEach(s => badges.push('<span class="badge-app badge-warning">Add: ' + s + '</span>'));
+      recBox.innerHTML = '<h6 class="fw-bold mb-2">AI Recommendations</h6><p class="mb-2">' + recText +
+        '</p><div class="d-flex flex-wrap gap-2">' + badges.join('') + '</div>';
+    }
+
   </script>
   <script src="../../assets/js/auth-guard.js"></script>
+  <script src="../../assets/js/global-loader.js"></script>
 </body>
 </html>

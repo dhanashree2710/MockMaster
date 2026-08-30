@@ -215,3 +215,18 @@ POST /api/interview/report
 ## License
 
 Built for educational and product development use.
+
+---
+
+## OpenAI / AI Integration (v1.1)
+
+See **[OPENAI_SETUP.md](OPENAI_SETUP.md)** for:
+
+- Where to put the OpenAI API key (client vs backend)
+- How AI questions + ideal answers are generated
+- Speech recognition fixes (word repetition)
+- Indian-accent tutor voice settings
+- Session PDF report with ideal answers
+
+**Security:** Never commit a real OpenAI key. Prefer a backend proxy (`apiBase`).
+

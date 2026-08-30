@@ -9,13 +9,76 @@ const APP_CONFIG = {
   supabaseAnonKey: null,
   name: 'MockMaster',
   tagline: 'Your Resume. Your Role. Your AI Interview Coach.',
-  version: '1.0.0',
-  // When backend is ready, set this to your API base URL
+  version: '1.1.0',
+
+  // When backend is ready, set this to your API base URL.
+  // IMPORTANT: Prefer routing OpenAI calls through your own backend so the
+  // secret key never ships to the browser. Example:
+  //   apiBase: 'https://your-api.com/v1'
+  // Then implement /v1/chat (and optional /v1/tts, /v1/transcribe) on the server.
   apiBase: null, // e.g. 'https://api.interviewpro.ai/v1'
+
+  // ------------------------------------------------------------------
+  // AI PROVIDER CONFIG
+  // ------------------------------------------------------------------
+  // Providers (pick one):
+  //   'groq'    — FREE tier, fast (recommended). Get key: https://console.groq.com
+  //   'gemini'  — FREE quota from Google AI Studio: https://aistudio.google.com/apikey
+  //   'openai'  — Paid. Best quality when you have a key.
+  // Falls back to local question banks if no key is set or the API fails.
+  //
+  // SECURITY WARNING
+  // Putting any API key in this client file exposes it in DevTools.
+  // For production:
+  //   1. Leave keys empty in the client.
+  //   2. Set apiBase to your backend.
+  //   3. Store the real key only in server environment variables.
+  //   4. Frontend calls YOUR endpoints; the server calls the LLM.
+  //
+  // API KEYS — keep EMPTY in this file (safe for GitHub).
+  // Users enter a free key in Settings → stored only in their browser (localStorage).
+  // Optional: set apiBase to your backend and keep keys only on the server.
+  // ------------------------------------------------------------------
+  aiProvider: 'groq', // default provider: 'groq' | 'gemini' | 'openai'
+
+  // Groq (FREE) — https://console.groq.com  (no credit card)
+  groqApiKey: '', // never commit a real key
+  groqModel: 'llama-3.3-70b-versatile',
+  groqBaseUrl: 'https://api.groq.com/openai/v1',
+
+  // Google AI Studio — https://aistudio.google.com/apikey
+  geminiApiKey: '',
+  geminiModel: 'gemini-2.0-flash',
+
+  // OpenAI — paid
+  openaiApiKey: '',
+  openaiModel: 'gpt-4o-mini',
+  openaiBaseUrl: 'https://api.openai.com/v1',
+
+  // Tutor voice preferences (browser SpeechSynthesis + language)
+  tts: {
+    preferIndianAccent: true,
+    defaultRate: 0.92,
+    defaultPitch: 1.0,
+    // BCP-47 tags used for SpeechSynthesis
+    langMap: {
+      en: 'en-IN',
+      hi: 'hi-IN',
+      mr: 'mr-IN',
+      ta: 'ta-IN',
+      te: 'te-IN',
+      bn: 'bn-IN',
+      gu: 'gu-IN',
+      kn: 'kn-IN',
+      pa: 'pa-IN',
+      ur: 'ur-IN'
+    }
+  },
+
   supportedResumeFormats: ['.pdf', '.doc', '.docx'],
   maxResumeSizeMB: 5,
   interviewLanguages: [
-    { code: 'en', label: 'English', flag: '🇬🇧' },
+    { code: 'en', label: 'English (Indian)', flag: '🇮🇳' },
     { code: 'hi', label: 'Hindi', flag: '🇮🇳' },
     { code: 'mr', label: 'Marathi', flag: '🇮🇳' },
     { code: 'ta', label: 'Tamil', flag: '🇮🇳' },
@@ -174,7 +237,12 @@ const STORAGE_KEYS = {
   job: 'ipa_job',
   match: 'ipa_match',
   sessions: 'ipa_sessions',
-  progress: 'ipa_progress'
+  progress: 'ipa_progress',
+  // AI keys live only in the browser — never in git
+  aiProvider: 'ipa_ai_provider',
+  groqApiKey: 'ipa_groq_key',
+  geminiApiKey: 'ipa_gemini_key',
+  openaiApiKey: 'ipa_openai_key'
 };
 
 // Helpers to simulate async AI calls

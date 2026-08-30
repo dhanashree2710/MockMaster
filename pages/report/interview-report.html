@@ -11,6 +11,7 @@
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
   <link href="../../assets/css/download-btn.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -115,11 +116,8 @@
           <div class="card-app h-100">
             <div class="card-body">
               <h6 class="fw-bold text-success mb-3"><i class="bi bi-check-circle me-2"></i>What You Did Well</h6>
-              <ul class="mb-0">
-                <li>Strong technical understanding of React</li>
-                <li>Good project knowledge and concrete examples</li>
-                <li>Clear communication overall</li>
-                <li>Relevant answers tied to the target role</li>
+              <ul class="mb-0" id="strengthsList">
+                <li>Completed the interview session</li>
               </ul>
             </div>
           </div>
@@ -128,11 +126,8 @@
           <div class="card-app h-100">
             <div class="card-body">
               <h6 class="fw-bold text-warning mb-3"><i class="bi bi-exclamation-triangle me-2"></i>What Needs Improvement</h6>
-              <ul class="mb-0">
-                <li>Answer structure — use STAR for behavioral questions</li>
-                <li>TypeScript fundamentals</li>
-                <li>Keep introductions more concise and achievement-focused</li>
-                <li>Quantify results more often</li>
+              <ul class="mb-0" id="improveList">
+                <li>Practice fuller answers with examples</li>
               </ul>
             </div>
           </div>
@@ -149,11 +144,9 @@
       <div class="card-app mb-4">
         <div class="card-body">
           <h6 class="fw-bold mb-3">Recommended Practice</h6>
-          <div class="d-flex flex-wrap gap-2">
-            <a href="../preparation/preparation-plan.html" class="badge-app badge-primary text-decoration-none">React Hooks · 5 Qs</a>
-            <a href="../preparation/preparation-plan.html" class="badge-app badge-primary text-decoration-none">REST APIs · 8 Qs</a>
-            <a href="../preparation/preparation-plan.html" class="badge-app badge-warning text-decoration-none">Behavioral · 10 Qs</a>
-            <a href="../preparation/preparation-plan.html" class="badge-app badge-warning text-decoration-none">TypeScript · 6 Qs</a>
+          <div class="d-flex flex-wrap gap-2" id="practiceList">
+            <a href="../preparation/preparation-plan.html" class="badge-app badge-primary text-decoration-none">Role fundamentals · 5 Qs</a>
+            <a href="../preparation/preparation-plan.html" class="badge-app badge-warning text-decoration-none">Behavioral · 8 Qs</a>
           </div>
         </div>
       </div>
@@ -184,6 +177,7 @@
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/app.js"></script>
+  <script src="../../assets/js/confetti.js"></script>
   <script>
     const report = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null');
     if (report) {
@@ -198,6 +192,163 @@
       document.getElementById('confScore').textContent = Math.min(100, score - 6) + '%';
       document.getElementById('jobScore').textContent = Math.min(100, score + 7) + '%';
 
+      // Celebrate successful interview completion
+      try {
+        if (window.MockMasterConfetti && (report.answers || []).length) {
+          setTimeout(function () { MockMasterConfetti.blast({ duration: 3400, count: 180 }); }, 350);
+        }
+      } catch (_) {}
+
+      // ---- Role-aware strengths / improvements / practice ----
+      (function buildRoleFeedback() {
+        const answers = report.answers || [];
+        const setup = report.setup || {};
+        const job = (window.Utils && Utils.getStored) ? (Utils.getStored(STORAGE_KEYS.job, null) || {}) : {};
+        const match = (window.Utils && Utils.getStored) ? (Utils.getStored(STORAGE_KEYS.match, { missing: [], matched: [] }) || { missing: [], matched: [] }) : { missing: [], matched: [] };
+        const resume = (window.Utils && Utils.getStored) ? (Utils.getStored(STORAGE_KEYS.resume, null) || {}) : {};
+        const position = setup.position || job.position || job.title || 'this role';
+        const domain = (window.InterviewQuestions && InterviewQuestions.detectDomain)
+          ? InterviewQuestions.detectDomain(position, job, resume, setup)
+          : 'general';
+
+        const weak = answers.filter(a => (a.score || 0) < 50);
+        const strong = answers.filter(a => (a.score || 0) >= 70);
+        const avgLen = answers.length
+          ? answers.reduce((s, a) => s + String(a.answer || '').split(/\s+/).filter(Boolean).length, 0) / answers.length
+          : 0;
+
+        const DOMAIN_LABEL = {
+          data: 'data analysis / SQL / BI',
+          frontend: 'frontend development',
+          backend: 'backend / APIs',
+          fullstack: 'full-stack development',
+          hr: 'HR / recruiting',
+          training: 'training & L&D',
+          qa: 'QA / testing',
+          devops: 'DevOps / cloud',
+          general: position
+        };
+        const domainLabel = DOMAIN_LABEL[domain] || position;
+
+        const PRACTICE = {
+          data: [
+            { t: 'SQL & Joins', n: 8 },
+            { t: 'Excel / Pivot tables', n: 6 },
+            { t: 'Tableau / Power BI', n: 6 },
+            { t: 'Statistics & KPIs', n: 5 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          frontend: [
+            { t: 'JavaScript core', n: 6 },
+            { t: 'React / UI', n: 8 },
+            { t: 'REST APIs', n: 5 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          backend: [
+            { t: 'REST & HTTP', n: 6 },
+            { t: 'Databases / SQL', n: 8 },
+            { t: 'Auth & security', n: 5 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          fullstack: [
+            { t: 'Frontend fundamentals', n: 5 },
+            { t: 'Backend & APIs', n: 6 },
+            { t: 'SQL basics', n: 5 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          hr: [
+            { t: 'Recruitment cycle', n: 6 },
+            { t: 'Employee relations', n: 5 },
+            { t: 'HR metrics', n: 4 },
+            { t: 'Behavioral (STAR)', n: 10 }
+          ],
+          training: [
+            { t: 'Curriculum design', n: 5 },
+            { t: 'Facilitation', n: 6 },
+            { t: 'Training measurement', n: 4 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          qa: [
+            { t: 'Test design', n: 6 },
+            { t: 'Bug life cycle', n: 4 },
+            { t: 'Automation basics', n: 5 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          devops: [
+            { t: 'CI/CD pipelines', n: 6 },
+            { t: 'Containers / cloud', n: 6 },
+            { t: 'Monitoring', n: 4 },
+            { t: 'Behavioral (STAR)', n: 8 }
+          ],
+          general: [
+            { t: 'Role fundamentals', n: 6 },
+            { t: 'Tools for ' + position, n: 5 },
+            { t: 'Behavioral (STAR)', n: 10 }
+          ]
+        };
+
+        // Strengths
+        const strengths = [];
+        if (strong.length) strengths.push('Solid answers on ' + strong.length + ' question(s) (score 70+)');
+        if (avgLen >= 25) strengths.push('Answers were detailed enough to show real thinking');
+        else if (avgLen >= 12) strengths.push('Communication was clear overall');
+        strengths.push('Completed a full mock interview for the ' + position + ' role');
+        if ((match.matched || []).length) {
+          strengths.push('Relevant skills for this role: ' + match.matched.slice(0, 3).join(', '));
+        } else {
+          strengths.push('Focused on ' + domainLabel + ' topics');
+        }
+        if (score >= 70) strengths.push('Good overall readiness for this level of interview');
+
+        // Improvements
+        const improve = [];
+        if (weak.length) {
+          improve.push('Strengthen weak areas (' + weak.length + ' low-scoring answers) — review suggested answers');
+        }
+        if (avgLen < 15) improve.push('Give longer answers with one concrete example from your experience');
+        improve.push('Use STAR (Situation–Task–Action–Result) for behavioral questions');
+        if ((match.missing || []).length) {
+          improve.push('Practice gaps for this JD: ' + match.missing.slice(0, 3).join(', '));
+        } else {
+          improve.push('Deepen ' + domainLabel + ' fundamentals and quantify results when possible');
+        }
+        improve.push('Keep introductions concise and achievement-focused');
+
+        // Practice badges — domain + missing skills
+        let practice = (PRACTICE[domain] || PRACTICE.general).slice();
+        (match.missing || []).slice(0, 3).forEach(function (s) {
+          if (!practice.some(function (p) { return p.t.toLowerCase().indexOf(String(s).toLowerCase()) >= 0; })) {
+            practice.unshift({ t: s, n: 5 });
+          }
+        });
+        // From weak question types
+        const weakTypes = {};
+        weak.forEach(function (a) {
+          const t = (a.type || 'technical');
+          weakTypes[t] = (weakTypes[t] || 0) + 1;
+        });
+        Object.keys(weakTypes).forEach(function (t) {
+          if (t === 'behavioral' || t === 'hr') {
+            // already have behavioral
+          } else if (t === 'coding') {
+            practice.unshift({ t: 'Coding practice', n: 6 });
+          }
+        });
+
+        const sl = document.getElementById('strengthsList');
+        const il = document.getElementById('improveList');
+        const pl = document.getElementById('practiceList');
+        if (sl) sl.innerHTML = strengths.slice(0, 5).map(function (x) { return '<li>' + x + '</li>'; }).join('');
+        if (il) il.innerHTML = improve.slice(0, 5).map(function (x) { return '<li>' + x + '</li>'; }).join('');
+        if (pl) {
+          pl.innerHTML = practice.slice(0, 6).map(function (p) {
+            const cls = /behavioral|STAR/i.test(p.t) ? 'badge-warning' : 'badge-primary';
+            return '<a href="../preparation/preparation-plan.html" class="badge-app ' + cls + ' text-decoration-none">' +
+              p.t + ' · ' + p.n + ' Qs</a>';
+          }).join('');
+        }
+      })();
+
       const review = document.getElementById('answerReview');
       review.innerHTML = (report.answers || []).map((a, i) => `
         <div class="border-bottom pb-3 mb-3" style="border-color:var(--border)!important;">
@@ -210,7 +361,18 @@
           <details class="small">
             <summary class="fw-semibold cursor-pointer">Suggested answer</summary>
             <p class="mt-2 mb-0 p-2 rounded-app" style="background:var(--surface-hover);">
-              ${(function(){ var s = a.betterAnswer; var generic = !s || /explain the concept briefly|structure your answer|concept → example|define the concept/i.test(s); if (!generic) return s; if (window.InterviewQuestions && InterviewQuestions.getModelAnswer) return InterviewQuestions.getModelAnswer(a.question); return s || 'Define the term, give a short example, and one practical tip.'; })()}
+              ${(function(){
+                var s = a.betterAnswer || a.idealAnswer || '';
+                var generic = !s || s.length < 50 ||
+                  /explain the concept briefly|structure your answer|concept → example|define the concept|strong answer should|A clear answer:\s*\(1\)|state the idea in simple words/i.test(s);
+                if (!generic) return s;
+                if (window.InterviewQuestions && InterviewQuestions.getModelAnswer && a.question) {
+                  var m = InterviewQuestions.getModelAnswer(a.question);
+                  if (m && m.length > 40 && !/state the idea in simple words/i.test(m)) return m;
+                }
+                var topic = String(a.question || '').replace(/^(what is|explain|how would you|tell me about)\s+/i,'').slice(0,70);
+                return 'For "' + topic + '": explain in simple words, give one short example from your experience, and link it to this job.';
+              })()}
             </p>
           </details>
         </div>
@@ -334,8 +496,9 @@
         (data.answers || []).forEach(function (a, i) {
           lines.push('Q' + (i + 1) + '. ' + (a.question || ''));
           lines.push('Score: ' + (a.score != null ? a.score : '-') + '/100');
-          lines.push('Answer: ' + (a.answer || ''));
+          lines.push('Your Answer: ' + (a.answer || ''));
           if (a.evaluation) lines.push('Evaluation: ' + a.evaluation);
+          if (a.betterAnswer) lines.push('Ideal Answer: ' + a.betterAnswer);
           lines.push('');
         });
         lines.push('Generated by MockMaster · ' + new Date().toLocaleString());
@@ -415,7 +578,20 @@
             if (a.evaluation) {
               var eLines = doc.splitTextToSize('Evaluation: ' + a.evaluation, pageW - margin * 2);
               doc.text(eLines, margin, y);
-              y += eLines.length * 12 + 12;
+              y += eLines.length * 12 + 6;
+            }
+            if (a.betterAnswer) {
+              if (y > 700) { doc.addPage(); y = 56; }
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(43, 87, 72);
+              var idealHeader = doc.splitTextToSize('Ideal Answer (learn from this):', pageW - margin * 2);
+              doc.text(idealHeader, margin, y);
+              y += idealHeader.length * 12 + 2;
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(60, 70, 66);
+              var bLines = doc.splitTextToSize(String(a.betterAnswer), pageW - margin * 2);
+              doc.text(bLines, margin, y);
+              y += bLines.length * 12 + 14;
             } else {
               y += 10;
             }
@@ -490,6 +666,9 @@
             .then(function () {
               if (statusEl) statusEl.textContent = 'Download Complete';
               if (labelEl) labelEl.textContent = 'Complete';
+              try {
+                if (window.MockMasterConfetti) MockMasterConfetti.blast({ duration: 2800, count: 140 });
+              } catch (_) {}
             })
             .catch(function (err) {
               console.error('PDF failed, using TXT', err);
@@ -497,6 +676,9 @@
                 downloadBlob(buildTextReport(data), 'text/plain;charset=utf-8', 'MockMaster-Interview-Report-' + stamp + '.txt');
                 if (statusEl) statusEl.textContent = 'Saved as TXT (PDF unavailable)';
                 if (labelEl) labelEl.textContent = 'Complete';
+                try {
+                  if (window.MockMasterConfetti) MockMasterConfetti.blast({ duration: 2400, count: 100 });
+                } catch (_) {}
               } catch (err2) {
                 console.error(err2);
                 if (statusEl) statusEl.textContent = 'Download failed — try another browser';
@@ -530,5 +712,6 @@
 
 
   <script src="../../assets/js/auth-guard.js"></script>
+  <script src="../../assets/js/global-loader.js"></script>
 </body>
 </html>

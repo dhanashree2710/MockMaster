@@ -9,6 +9,7 @@
   <link href="../assets/css/variables.css" rel="stylesheet">
   <link href="../assets/css/style.css" rel="stylesheet">
   <link href="../assets/css/responsive.css" rel="stylesheet">
+  <link href="../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar-app">
@@ -16,34 +17,101 @@
     <div class="navbar-actions"><button class="btn-ghost" data-theme-toggle><i class="bi bi-moon-stars"></i></button></div>
   </nav>
   <main class="main-content">
-    <div class="page-content" style="max-width:600px;">
-      <div class="page-header"><h1>Settings</h1></div>
+    <div class="page-content" style="max-width:640px;">
+      <div class="page-header">
+        <h1>Settings</h1>
+        <p class="text-muted mb-0">Appearance, language, and AI provider for this device</p>
+      </div>
+
       <div class="card-app mb-3">
         <div class="card-body">
           <h6 class="fw-bold mb-3">Appearance</h6>
-          <div class="d-flex gap-2">
-            <button class="btn-outline-app" onclick="Theme.set('light')">Light</button>
-            <button class="btn-outline-app" onclick="Theme.set('dark')">Dark</button>
-            <button class="btn-outline-app" onclick="Theme.set('system')">System</button>
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn-outline-app" onclick="Theme.set('light')">Light</button>
+            <button type="button" class="btn-outline-app" onclick="Theme.set('dark')">Dark</button>
+            <button type="button" class="btn-outline-app" onclick="Theme.set('system')">System</button>
           </div>
         </div>
       </div>
-      <div class="card-app">
+
+      <div class="card-app mb-3">
         <div class="card-body">
           <h6 class="fw-bold mb-3">App Language</h6>
-          <select class="form-select form-control-app">
-            <option>English</option>
-            <option>Hindi</option>
-            <option>Marathi</option>
+          <select class="form-select form-control-app" id="appLangSelect">
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+            <option value="mr">Marathi</option>
           </select>
           <p class="text-muted small mt-2 mb-0">Interview language can be chosen separately when starting a mock interview.</p>
         </div>
       </div>
+
+      <!-- AI Provider — keys stay on this device only -->
+      <div class="card-app mb-3">
+        <div class="card-body">
+          <h6 class="fw-bold mb-1"><i class="bi bi-robot me-2"></i>AI Interview Engine</h6>
+          <p class="text-muted small mb-3">
+            Paste a <strong>free</strong> API key so AI questions work on this phone or PC.
+            The key is saved only in <em>this browser</em> — it is never uploaded to GitHub or our servers.
+          </p>
+
+          <label class="form-label fw-semibold">Provider</label>
+          <select class="form-select form-control-app mb-3" id="aiProvider">
+            <option value="groq">Groq (free, recommended)</option>
+            <option value="gemini">Google Gemini (free)</option>
+            <option value="openai">OpenAI (paid)</option>
+          </select>
+
+          <div id="keyGroqWrap">
+            <label class="form-label fw-semibold">Groq API Key</label>
+            <div class="input-group mb-2">
+              <input type="password" class="form-control form-control-app" id="groqKey" placeholder="gsk_..." autocomplete="off">
+              <button type="button" class="btn btn-outline-secondary" id="toggleGroq" title="Show/Hide">👁</button>
+            </div>
+            <p class="small text-muted mb-3">
+              Get a free key (no card):
+              <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>
+            </p>
+          </div>
+
+          <div id="keyGeminiWrap" class="d-none">
+            <label class="form-label fw-semibold">Gemini API Key</label>
+            <input type="password" class="form-control form-control-app mb-2" id="geminiKey" placeholder="AIza..." autocomplete="off">
+            <p class="small text-muted mb-3">
+              Free key:
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
+            </p>
+          </div>
+
+          <div id="keyOpenaiWrap" class="d-none">
+            <label class="form-label fw-semibold">OpenAI API Key</label>
+            <input type="password" class="form-control form-control-app mb-2" id="openaiKey" placeholder="sk-..." autocomplete="off">
+            <p class="small text-muted mb-3">Paid key from platform.openai.com</p>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button type="button" class="btn-primary-app" id="saveAiBtn">Save AI settings</button>
+            <button type="button" class="btn-outline-app" id="clearAiBtn">Clear keys on this device</button>
+            <span class="small" id="aiSaveStatus"></span>
+          </div>
+          <p class="small mt-3 mb-0" id="aiStatusLine"></p>
+        </div>
+      </div>
+
+      <p class="text-muted small">
+        Without a key, interviews still work using built-in question banks.
+        With a key, questions are generated from the resume + job description.
+      </p>
     </div>
   </main>
-    <nav class="bottom-nav" aria-label="Mobile navigation">
+
+  <nav class="bottom-nav" aria-label="Mobile navigation">
     <div class="dock-bead" aria-hidden="true"><i class="bi bi-grid-1x2"></i></div>
-    <a href="dashboard.html" aria-label="Home"><i class="bi bi-grid-1x2"></i><span>Home</span></a><a href="resume/upload-resume.html" aria-label="Resume"><i class="bi bi-file-earmark-person"></i><span>Resume</span></a><a href="interview/interview-setup.html" aria-label="Interview"><i class="bi bi-mic"></i><span>Interview</span></a><a href="progress.html" aria-label="Progress"><i class="bi bi-graph-up"></i><span>Progress</span></a><a href="profile.html" aria-label="Profile"><i class="bi bi-person"></i><span>Profile</span></a>
+    <a href="dashboard.html" aria-label="Home"><i class="bi bi-grid-1x2"></i><span>Home</span></a>
+    <a href="resume/upload-resume.html" aria-label="Resume"><i class="bi bi-file-earmark-person"></i><span>Resume</span></a>
+    <a href="interview/interview-setup.html" aria-label="Interview"><i class="bi bi-mic"></i><span>Interview</span></a>
+    <a href="progress.html" aria-label="Progress"><i class="bi bi-graph-up"></i><span>Progress</span></a>
+    <a href="profile.html" aria-label="Profile"><i class="bi bi-person"></i><span>Profile</span></a>
   </nav>
 
   <footer class="site-footer">
@@ -58,6 +126,82 @@
   <script src="../assets/js/theme.js"></script>
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/openai-interview.js"></script>
+  <script>
+    (function () {
+      var K = window.STORAGE_KEYS || {};
+      var providerEl = document.getElementById('aiProvider');
+      var groqEl = document.getElementById('groqKey');
+      var geminiEl = document.getElementById('geminiKey');
+      var openaiEl = document.getElementById('openaiKey');
+      var statusLine = document.getElementById('aiStatusLine');
+      var saveStatus = document.getElementById('aiSaveStatus');
+
+      function get(key, fallback) {
+        try { return localStorage.getItem(key) || fallback || ''; } catch (_) { return fallback || ''; }
+      }
+      function set(key, val) {
+        try {
+          if (val) localStorage.setItem(key, val);
+          else localStorage.removeItem(key);
+        } catch (_) {}
+      }
+
+      function showWraps() {
+        var p = providerEl.value;
+        document.getElementById('keyGroqWrap').classList.toggle('d-none', p !== 'groq');
+        document.getElementById('keyGeminiWrap').classList.toggle('d-none', p !== 'gemini');
+        document.getElementById('keyOpenaiWrap').classList.toggle('d-none', p !== 'openai');
+      }
+
+      function refreshStatus() {
+        var configured = window.OpenAIInterview && OpenAIInterview.isConfigured && OpenAIInterview.isConfigured();
+        if (configured) {
+          var c = OpenAIInterview; // isConfigured only
+          statusLine.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> AI ready on this device — personalized questions enabled.</span>';
+        } else {
+          statusLine.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-circle"></i> No key on this device — interviews use local question banks.</span>';
+        }
+      }
+
+      // Load saved values
+      providerEl.value = get(K.aiProvider, 'groq') || 'groq';
+      groqEl.value = get(K.groqApiKey, '');
+      geminiEl.value = get(K.geminiApiKey, '');
+      openaiEl.value = get(K.openaiApiKey, '');
+      showWraps();
+      refreshStatus();
+
+      providerEl.addEventListener('change', showWraps);
+
+      document.getElementById('toggleGroq').addEventListener('click', function () {
+        groqEl.type = groqEl.type === 'password' ? 'text' : 'password';
+      });
+
+      document.getElementById('saveAiBtn').addEventListener('click', function () {
+        set(K.aiProvider, providerEl.value);
+        set(K.groqApiKey, groqEl.value.trim());
+        set(K.geminiApiKey, geminiEl.value.trim());
+        set(K.openaiApiKey, openaiEl.value.trim());
+        saveStatus.innerHTML = '<span class="text-success">Saved on this device</span>';
+        refreshStatus();
+        setTimeout(function () { saveStatus.textContent = ''; }, 2500);
+      });
+
+      document.getElementById('clearAiBtn').addEventListener('click', function () {
+        if (!confirm('Remove AI keys stored on this device?')) return;
+        set(K.groqApiKey, '');
+        set(K.geminiApiKey, '');
+        set(K.openaiApiKey, '');
+        groqEl.value = '';
+        geminiEl.value = '';
+        openaiEl.value = '';
+        saveStatus.innerHTML = '<span class="text-muted">Cleared</span>';
+        refreshStatus();
+      });
+    })();
+  </script>
   <script src="../assets/js/auth-guard.js"></script>
+  <script src="../assets/js/global-loader.js"></script>
 </body>
 </html>

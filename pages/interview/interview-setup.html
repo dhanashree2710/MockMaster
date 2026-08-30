@@ -10,6 +10,7 @@
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar-app">
@@ -33,7 +34,7 @@
         <div class="card-body p-4">
           <div class="mb-3">
             <label class="form-label-app">Target Position</label>
-            <input type="text" class="form-control form-control-app" id="position" value="Senior Frontend Developer" placeholder="e.g. Senior Frontend Developer, Java Developer, HR Executive" list="positionSuggestions">
+            <input type="text" class="form-control form-control-app" id="position" value="" placeholder="e.g. Data Analyst, Backend Engineer, HR Manager" list="positionSuggestions">
             <datalist id="positionSuggestions">
               <option value="Frontend Developer"></option>
               <option value="Senior Frontend Developer"></option>
@@ -133,10 +134,14 @@
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/app.js"></script>
+  <script src="../../assets/js/openai-interview.js"></script>
   <script>
-    const job = Utils.getStored(STORAGE_KEYS.job, MOCK_JOB);
+    const job = Utils.getStored(STORAGE_KEYS.job, null);
     const posEl = document.getElementById('position');
-    posEl.value = job.position || posEl.value || 'Senior Frontend Developer';
+    // Prefer user's saved job title — never force mock "Senior Frontend Developer"
+    const savedTitle = (job && (job.position || job.title)) || '';
+    posEl.value = savedTitle || posEl.value || '';
+    if (!posEl.value) posEl.placeholder = 'e.g. Data Analyst, Backend Engineer, HR Manager';
     posEl.removeAttribute('readonly');
     document.getElementById('startBtn').addEventListener('click', async () => {
       const setup = {
@@ -166,5 +171,18 @@
     });
   </script>
   <script src="../../assets/js/auth-guard.js"></script>
+  <script src="../../assets/js/global-loader.js"></script>
+
+  <script>
+    (function () {
+      try {
+        if (window.OpenAIInterview && !OpenAIInterview.isConfigured()) {
+          var b = document.getElementById('aiKeyBanner');
+          if (b) b.classList.remove('d-none');
+        }
+      } catch (_) {}
+    })();
+  </script>
+
 </body>
 </html>

@@ -1,0 +1,156 @@
+/**
+ * MockMaster — Hourglass Loader
+ * Colors: #9CB080 · #618764 · #2B5748 · #273338 · gold #D4AF37
+ *
+ * Usage:
+ *   <div class="hourglass-loader" role="status" aria-label="Loading"></div>
+ * Overlay is injected by global-loader.js
+ */
+
+/* ========== Hourglass core ========== */
+.hourglass-loader {
+  width: 56px;
+  height: 72px;
+  position: relative;
+  margin: 0 auto;
+  filter: drop-shadow(0 10px 16px rgba(39, 51, 56, 0.45));
+  animation: hourglassFlip 2s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+/* Frame (glass outline) */
+.hourglass-loader::before,
+.hourglass-loader::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 40px;
+  height: 28px;
+  margin-left: -20px;
+  border: 2.5px solid #D4AF37;
+  background: linear-gradient(
+    180deg,
+    rgba(156, 176, 128, 0.35) 0%,
+    rgba(97, 135, 100, 0.25) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 0 1px rgba(43, 87, 72, 0.4);
+}
+
+/* Top bulb */
+.hourglass-loader::before {
+  top: 4px;
+  border-radius: 8px 8px 2px 2px;
+  clip-path: polygon(0 0, 100% 0, 70% 100%, 30% 100%);
+  background: linear-gradient(
+    180deg,
+    #9CB080 0%,
+    #9CB080 35%,
+    transparent 70%
+  );
+  animation: sandDrain 2s ease-in-out infinite;
+}
+
+/* Bottom bulb */
+.hourglass-loader::after {
+  bottom: 4px;
+  border-radius: 2px 2px 8px 8px;
+  clip-path: polygon(30% 0, 70% 0, 100% 100%, 0 100%);
+  background: linear-gradient(
+    0deg,
+    #618764 0%,
+    #618764 20%,
+    transparent 55%
+  );
+  animation: sandFill 2s ease-in-out infinite;
+}
+
+/* Center neck + frame bars via extra element when present */
+.hourglass-loader .hg-neck {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: #2B5748;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1.5px #D4AF37;
+  z-index: 2;
+}
+
+/* Caps (top/bottom bars) */
+.hourglass-loader .hg-cap-top,
+.hourglass-loader .hg-cap-bottom {
+  position: absolute;
+  left: 50%;
+  width: 48px;
+  height: 6px;
+  margin-left: -24px;
+  background: linear-gradient(90deg, #2B5748, #618764, #2B5748);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1.5px #D4AF37;
+  z-index: 3;
+}
+.hourglass-loader .hg-cap-top { top: 0; }
+.hourglass-loader .hg-cap-bottom { bottom: 0; }
+
+@keyframes hourglassFlip {
+  0%, 40%   { transform: rotate(0deg); }
+  50%, 90%  { transform: rotate(180deg); }
+  100%      { transform: rotate(360deg); }
+}
+
+@keyframes sandDrain {
+  0%, 10%  { background: linear-gradient(180deg, #9CB080 0%, #9CB080 55%, transparent 75%); }
+  40%, 50% { background: linear-gradient(180deg, #9CB080 0%, transparent 25%); }
+  60%, 100%{ background: linear-gradient(180deg, #9CB080 0%, #9CB080 55%, transparent 75%); }
+}
+
+@keyframes sandFill {
+  0%, 10%  { background: linear-gradient(0deg, #618764 0%, transparent 30%); }
+  40%, 50% { background: linear-gradient(0deg, #618764 0%, #618764 50%, transparent 70%); }
+  60%, 100%{ background: linear-gradient(0deg, #618764 0%, transparent 30%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hourglass-loader,
+  .hourglass-loader::before,
+  .hourglass-loader::after {
+    animation: none;
+  }
+}
+
+/* ========== Full-page overlay ========== */
+.hourglass-loader-overlay,
+.flip-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.35rem;
+  background: rgba(39, 51, 56, 0.92);
+  backdrop-filter: blur(5px);
+  transition: opacity 0.3s ease;
+}
+
+.hourglass-loader-overlay.is-hiding,
+.flip-loader-overlay.is-hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hourglass-loader-overlay .loader-caption,
+.flip-loader-overlay .loader-caption {
+  color: rgba(156, 176, 128, 0.95);
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}

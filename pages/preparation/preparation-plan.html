@@ -10,6 +10,7 @@
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar-app">
@@ -33,7 +34,7 @@
 
       <div class="page-header">
         <h1>Your Personalized Interview Plan</h1>
-        <p>Based on your resume, the target role, and detected skill gaps.</p>
+        <p id="planSubtitle">Based on your resume, the target role, and detected skill gaps.</p>
       </div>
 
       <div class="row g-4">
@@ -49,26 +50,7 @@
           <div class="card-app mb-3">
             <div class="card-body">
               <h6 class="fw-bold mb-3">Skill Gap Priority</h6>
-              <div class="skill-row">
-                <span class="skill-name">TypeScript</span>
-                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:35%"></div></div></div>
-                <span class="skill-pct">35%</span>
-              </div>
-              <div class="skill-row">
-                <span class="skill-name">Next.js</span>
-                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:25%"></div></div></div>
-                <span class="skill-pct">25%</span>
-              </div>
-              <div class="skill-row">
-                <span class="skill-name">AWS</span>
-                <div class="skill-bar-wrap"><div class="progress-app"><div class="bar" style="width:20%"></div></div></div>
-                <span class="skill-pct">20%</span>
-              </div>
-              <div class="skill-row">
-                <span class="skill-name">React</span>
-                <div class="skill-bar-wrap"><div class="progress-app success"><div class="bar" style="width:80%"></div></div></div>
-                <span class="skill-pct">80%</span>
-              </div>
+              <div id="gapList"></div>
             </div>
           </div>
           <div class="card-app">
@@ -90,35 +72,169 @@
     <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
   </footer>
 
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../../assets/js/supabase-client.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../assets/js/config.js"></script>
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/app.js"></script>
+  <script src="../../assets/js/interview-questions.js"></script>
   <script>
-    const plan = [
-      { day: 1, title: 'JavaScript Fundamentals', desc: 'Closures, event loop, async/await, ES6+' },
-      { day: 2, title: 'React Deep Dive', desc: 'Hooks, state management, performance, TypeScript basics' },
-      { day: 3, title: 'REST APIs & Networking', desc: 'HTTP, fetch, error handling, API design' },
-      { day: 4, title: 'SQL & Data', desc: 'Queries, joins, indexing basics for frontend context' },
-      { day: 5, title: 'Behavioral Questions', desc: 'STAR method, leadership, conflict, mentoring' },
-      { day: 6, title: 'Project Discussion', desc: 'E-commerce Dashboard & Task Manager — structure your stories' },
-      { day: 7, title: 'Full Mock Interview', desc: 'End-to-end interview with AI interviewer' }
-    ];
-    document.getElementById('planList').innerHTML = plan.map(d => `
-      <div class="d-flex gap-3 align-items-start p-3 rounded-app" style="background:var(--surface-hover);">
-        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-             style="width:40px;height:40px;background:var(--gradient-primary);color:white;font-weight:700;">${d.day}</div>
-        <div>
-          <strong>Day ${d.day}: ${d.title}</strong>
-          <p class="text-muted small mb-0">${d.desc}</p>
+    (function () {
+      const resume = Utils.getStored(STORAGE_KEYS.resume, null) || window.MOCK_RESUME || {};
+      const job = Utils.getStored(STORAGE_KEYS.job, null) || window.MOCK_JOB || {};
+      const match = Utils.getStored(STORAGE_KEYS.match, { score: 0, matched: [], missing: [], partial: [] });
+      const position = job.position || job.title || resume.currentRole || 'Target Role';
+      const domain = (window.InterviewQuestions && InterviewQuestions.detectDomain)
+        ? InterviewQuestions.detectDomain(position, job, resume, {})
+        : 'general';
+
+      document.getElementById('planSubtitle').textContent =
+        'Based on your resume and the ' + position + ' role' + (match.missing && match.missing.length
+          ? ' — focus on: ' + match.missing.slice(0, 3).join(', ')
+          : '') + '.';
+
+      // Domain-specific 7-day plans
+      const PLANS = {
+        data: [
+          { day: 1, title: 'SQL Fundamentals', desc: 'SELECT, WHERE, GROUP BY, JOINs, aggregates — practice with sample data' },
+          { day: 2, title: 'Excel & Spreadsheets', desc: 'Pivot tables, VLOOKUP/XLOOKUP, charts, data cleaning tips' },
+          { day: 3, title: 'BI Tools (Tableau / Power BI)', desc: 'Dashboards, filters, calculated fields, storytelling with data' },
+          { day: 4, title: 'Statistics & Metrics', desc: 'Mean/median, correlation, KPIs, basic A/B testing ideas' },
+          { day: 5, title: 'Behavioral & Communication', desc: 'STAR method, explaining insights to non-technical stakeholders' },
+          { day: 6, title: 'Project Stories', desc: 'Structure 2–3 analysis projects from your resume for interview discussion' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end Data Analyst mock with AI interviewer' }
+        ],
+        frontend: [
+          { day: 1, title: 'JavaScript Fundamentals', desc: 'Closures, event loop, async/await, ES6+' },
+          { day: 2, title: 'React Deep Dive', desc: 'Hooks, state, performance, component patterns' },
+          { day: 3, title: 'HTML / CSS & Responsive', desc: 'Semantic HTML, box model, flex/grid, accessibility' },
+          { day: 4, title: 'APIs & Browser Tools', desc: 'fetch, error handling, DevTools, debugging' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR method, teamwork, mentoring' },
+          { day: 6, title: 'Project Discussion', desc: 'Walk through 2 projects from your resume with clear impact' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end frontend mock with AI interviewer' }
+        ],
+        backend: [
+          { day: 1, title: 'APIs & HTTP', desc: 'REST, status codes, auth (JWT), error handling' },
+          { day: 2, title: 'Databases', desc: 'SQL vs NoSQL, indexing, transactions, basic design' },
+          { day: 3, title: 'Server Framework', desc: 'Middleware, routing, validation in your stack' },
+          { day: 4, title: 'Security & Scale', desc: 'SQL injection, rate limits, caching, logs' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR method, ownership, incident stories' },
+          { day: 6, title: 'Project Discussion', desc: 'System design of one backend service from your resume' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end backend mock with AI interviewer' }
+        ],
+        fullstack: [
+          { day: 1, title: 'Frontend Core', desc: 'JS/React (or your stack) + responsive UI' },
+          { day: 2, title: 'Backend Core', desc: 'APIs, auth, DB basics' },
+          { day: 3, title: 'Integration', desc: 'Connecting UI to API, error states, auth flow' },
+          { day: 4, title: 'Data & SQL', desc: 'Queries and simple schema design' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR method, trade-offs you made' },
+          { day: 6, title: 'Project Discussion', desc: 'Full-stack project end-to-end story' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end full-stack mock with AI interviewer' }
+        ],
+        hr: [
+          { day: 1, title: 'Recruitment Cycle', desc: 'Sourcing, screening, interviews, offers' },
+          { day: 2, title: 'JD & Screening', desc: 'Job description vs specification, resume screening' },
+          { day: 3, title: 'Employee Relations', desc: 'Engagement, difficult conversations, policies' },
+          { day: 4, title: 'Metrics & Process', desc: 'Time-to-hire, quality of hire, funnel metrics' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR stories on conflict, leadership, confidentiality' },
+          { day: 6, title: 'Role-Specific Cases', desc: 'Practice scenarios from the job description' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end HR mock with AI interviewer' }
+        ],
+        training: [
+          { day: 1, title: 'Adult Learning Basics', desc: 'Needs analysis, learning styles, engagement' },
+          { day: 2, title: 'Curriculum Design', desc: 'Outcomes, agenda, assessments for workshops' },
+          { day: 3, title: 'Delivery Skills', desc: 'Facilitation, handling tough participants' },
+          { day: 4, title: 'Measurement', desc: 'Feedback forms, Kirkpatrick levels, ROI ideas' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR stories on impact and stakeholders' },
+          { day: 6, title: 'Program Case Study', desc: 'Design a 2-day workshop from a sample brief' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end L&D / Trainer mock with AI interviewer' }
+        ],
+        qa: [
+          { day: 1, title: 'Testing Fundamentals', desc: 'Test types, bug life cycle, severity vs priority' },
+          { day: 2, title: 'Test Design', desc: 'Cases, boundary, exploratory testing' },
+          { day: 3, title: 'Automation Basics', desc: 'Frameworks you use, when to automate' },
+          { day: 4, title: 'API & UI Testing', desc: 'Tools and approach for this role' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR — quality ownership, deadlines vs quality' },
+          { day: 6, title: 'Project Discussion', desc: 'A testing project from your resume' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end QA mock with AI interviewer' }
+        ],
+        devops: [
+          { day: 1, title: 'CI/CD Basics', desc: 'Pipelines, build, deploy, rollback' },
+          { day: 2, title: 'Containers & Cloud', desc: 'Docker, Kubernetes basics, cloud services' },
+          { day: 3, title: 'Monitoring & Reliability', desc: 'Logs, metrics, alerts, SLOs' },
+          { day: 4, title: 'Infra as Code', desc: 'Terraform / Ansible concepts if relevant' },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR — incidents, on-call, collaboration' },
+          { day: 6, title: 'Project Discussion', desc: 'A pipeline or infra project from your resume' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end DevOps mock with AI interviewer' }
+        ],
+        general: [
+          { day: 1, title: 'Role Fundamentals', desc: 'Core concepts and tools for ' + position },
+          { day: 2, title: 'Tools & Processes', desc: 'Day-to-day tools mentioned in the job description' },
+          { day: 3, title: 'Domain Knowledge', desc: 'Industry and domain topics for this role' },
+          { day: 4, title: 'Skill Gaps', desc: 'Focus on missing skills: ' + ((match.missing || []).slice(0, 3).join(', ') || 'listed in JD') },
+          { day: 5, title: 'Behavioral Questions', desc: 'STAR method — teamwork, conflict, learning' },
+          { day: 6, title: 'Project / Experience Stories', desc: 'Structure 2–3 resume experiences for this role' },
+          { day: 7, title: 'Full Mock Interview', desc: 'End-to-end mock for ' + position }
+        ]
+      };
+
+      // If missing skills look analytical, prefer data plan even if domain is general
+      const missBlob = ((match.missing || []).concat(match.matched || []).join(' ') + ' ' + position).toLowerCase();
+      let planKey = domain;
+      if (/tableau|power\s*bi|sql|excel|statistics|data\s*analyst|analytics/i.test(missBlob) && planKey === 'general') {
+        planKey = 'data';
+      }
+      if (/react|javascript|frontend|html|css/i.test(missBlob) && planKey === 'general') {
+        planKey = 'frontend';
+      }
+
+      const plan = PLANS[planKey] || PLANS.general;
+
+      // Inject missing skills into Day 4 if useful
+      if (match.missing && match.missing.length && plan[3]) {
+        plan[3] = {
+          day: 4,
+          title: 'Priority Skill Gaps',
+          desc: 'Focus practice on: ' + match.missing.slice(0, 5).join(', ')
+        };
+      }
+
+      document.getElementById('planList').innerHTML = plan.map(d => `
+        <div class="d-flex gap-3 align-items-start p-3 rounded-app" style="background:var(--surface-hover);">
+          <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+               style="width:40px;height:40px;background:var(--gradient-primary);color:white;font-weight:700;">${d.day}</div>
+          <div>
+            <strong>Day ${d.day}: ${d.title}</strong>
+            <p class="text-muted small mb-0">${d.desc}</p>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+
+      // Skill gap bars from match
+      const gaps = [];
+      (match.missing || []).forEach((s, i) => gaps.push({ name: s, pct: Math.max(15, 40 - i * 5) }));
+      (match.partial || []).forEach((s, i) => gaps.push({ name: s, pct: 50 + i * 5 }));
+      (match.matched || []).slice(0, 3).forEach((s, i) => gaps.push({ name: s, pct: 75 + i * 5 }));
+      if (!gaps.length) {
+        gaps.push({ name: 'Core role skills', pct: 60 });
+        gaps.push({ name: 'Job-specific tools', pct: 40 });
+      }
+
+      document.getElementById('gapList').innerHTML = gaps.slice(0, 6).map(g => {
+        const pct = Math.min(95, Math.max(10, g.pct));
+        const ok = pct >= 70;
+        return `
+          <div class="skill-row">
+            <span class="skill-name">${g.name}</span>
+            <div class="skill-bar-wrap"><div class="progress-app${ok ? ' success' : ''}"><div class="bar" style="width:${pct}%"></div></div></div>
+            <span class="skill-pct">${pct}%</span>
+          </div>`;
+      }).join('');
+    })();
   </script>
   <script src="../../assets/js/auth-guard.js"></script>
+  <script src="../../assets/js/global-loader.js"></script>
 </body>
 </html>

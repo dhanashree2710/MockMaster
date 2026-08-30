@@ -506,48 +506,137 @@
   ];
 
   function getModelAnswer(question) {
-    const q = String(question || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const raw = String(question || '').trim();
+    const q = raw.toLowerCase().replace(/\s+/g, ' ');
+
     for (let i = 0; i < MODEL_ANSWERS.length; i++) {
       if (MODEL_ANSWERS[i].match.test(q)) return MODEL_ANSWERS[i].answer;
     }
-    // Keyword fallbacks (order matters — more specific first)
-    if (/arrow\s*function|what is a function/i.test(q)) {
-      return 'A function is a reusable block of code that can take parameters and return a value. Example: function add(a, b) { return a + b; }. An arrow function is shorter syntax: const add = (a, b) => a + b. Arrow functions do not have their own "this" (they inherit outer scope), so they are great for callbacks but not ideal as object methods that rely on this.';
+
+    // --- Gap / learn-quickly questions ---
+    if (/how would you approach learning|demonstrating|learn .* quickly|skill gap|emphasizes/i.test(q)) {
+      const skillMatch = raw.match(/emphasizes?\s+([^.]+?)(?:\.|$)/i)
+        || raw.match(/demonstrating\s+([^.?]+)/i)
+        || raw.match(/learning\s+(?:or\s+demonstrating\s+)?([^.?]+)/i);
+      const skill = (skillMatch && skillMatch[1] ? skillMatch[1] : 'this skill').replace(/\s+/g, ' ').trim();
+      return 'For ' + skill + ', I would: (1) learn the basics from official docs or a short course, (2) practice on one real task or public dataset so I can show a concrete example, (3) explain in the interview what I built and what I still plan to improve. Related skills I already have help me ramp up faster.';
     }
-    if (/\bvar\b.*\blet\b.*\bconst\b|\blet\b.*\bconst\b/i.test(q)) {
-      return 'var is function-scoped and can be redeclared; it is hoisted as undefined. let is block-scoped and can be reassigned but not redeclared in the same scope. const is block-scoped and cannot be reassigned (object contents can still change). Prefer const by default, let when you need reassignment; avoid var in modern JavaScript.';
+
+    // --- Tell me about yourself / intro ---
+    if (/tell me about yourself|introduce yourself|walk me through your (resume|background)/i.test(q)) {
+      return 'I would give a 60–90 second intro: present role and years of experience, 1–2 relevant achievements with numbers, skills that match this job, and why I am interested in this role. Keep it achievement-focused, not a full life story.';
     }
-    if (/semantic/i.test(q)) {
-      return 'Semantic HTML elements describe meaning, not just layout. Examples: <header>, <nav>, <main>, <article>, <section>, <aside>, <footer>. They help accessibility (screen readers), SEO, and clearer code versus using only <div>.';
+
+    // --- Why this role / company ---
+    if (/why (are you interested|do you want)|why should we hire|why this (role|position|company)/i.test(q)) {
+      return 'I would connect my background to the job: mention 2–3 requirements I already meet, one gap I am closing, and a clear reason this role fits my goals. End with enthusiasm for the team or product, not only salary.';
     }
-    if (/data types/i.test(q)) {
-      return 'JavaScript types include primitives: string, number, boolean, null, undefined, symbol, bigint; and object (arrays, functions, dates, plain objects). Knowing types helps you avoid bugs with == vs === and API data handling.';
+
+    // --- Tableau ---
+    if (/tableau/i.test(q)) {
+      return 'Tableau is used to build interactive dashboards. A strong answer covers connecting data, choosing charts for the business question, filters and calculated fields, and sharing the dashboard. Example: a sales dashboard that showed region-wise revenue so managers could act weekly.';
     }
-    if (/html and why|what is html/i.test(q)) {
-      return 'HTML (HyperText Markup Language) structures web content — text, links, images, forms. Browsers parse HTML into the DOM. CSS styles it and JavaScript makes it interactive.';
+
+    // --- Power BI ---
+    if (/power\s*bi/i.test(q)) {
+      return 'Power BI is Microsoft’s BI tool for reports and dashboards. I would mention data load, visuals, basic DAX, and publishing. Example: a KPI report for leadership with clear filters and one insight that changed a decision.';
     }
-    if (/tags and attributes/i.test(q)) {
-      return 'Tags define elements (e.g. <p>, <a>). Attributes add information on a tag, like href on a link: <a href="https://example.com">Home</a>. The tag is "a"; href is the attribute.';
+
+    // --- SQL family ---
+    if (/\bsql\b|join|group by|where and having|query/i.test(q)) {
+      if (/join|inner|left/i.test(q)) {
+        return 'JOINs combine tables on a related column. INNER JOIN keeps only matching rows; LEFT JOIN keeps all rows from the left table and matches from the right (NULL if none). Example: orders LEFT JOIN customers to list every order even if customer data is missing.';
+      }
+      if (/where and having|having/i.test(q)) {
+        return 'WHERE filters rows before aggregation; HAVING filters groups after GROUP BY. Example: WHERE order_date >= "2024-01-01" then GROUP BY customer HAVING SUM(amount) > 1000.';
+      }
+      return 'SQL is used to query relational data. A good answer states the business question first, then filters (WHERE), grouping (GROUP BY), and joins only when needed. Always check row counts so the numbers make sense.';
+    }
+
+    // --- Excel / pivot ---
+    if (/excel|pivot|vlookup|xlookup/i.test(q)) {
+      return 'In Excel I would clean the data, use pivot tables for summaries, and VLOOKUP/XLOOKUP to combine sheets. Example: monthly sales by region in a pivot, with one chart for stakeholders. I would also mention data validation to avoid errors.';
+    }
+
+    // --- Statistics ---
+    if (/mean|median|mode|correlation|statistics|kpi/i.test(q)) {
+      if (/kpi/i.test(q)) {
+        return 'A KPI is a measurable value tied to a business goal (e.g. conversion rate, churn, revenue). Good KPIs are clear, timely, and actionable. I would pick 3–5 KPIs for the role and explain how I would track them.';
+      }
+      return 'Mean is the average, median is the middle value, mode is the most frequent. Median is better when outliers exist. Correlation means two measures move together — it does not prove cause. I always link the number to a decision.';
+    }
+
+    // --- Data cleaning / analysis process ---
+    if (/data cleaning|messy|missing values|duplicate/i.test(q)) {
+      return 'I profile the data first (nulls, duplicates, types), then clean: fix formats, handle missing values, remove or flag duplicates, and document rules. Example: standardizing city names and dropping empty revenue rows before building a dashboard.';
+    }
+
+    // --- Behavioral / STAR ---
+    if (/tell me about a time|describe a (situation|conflict|challenge)|give an example of|how did you handle/i.test(q)) {
+      return 'Use STAR: Situation (context), Task (my responsibility), Action (what I did), Result (outcome with a number if possible). Keep it under 2 minutes and relevant to this job. Example structure: “In my last role… I was asked to… I did X and Y… which improved Z by N%.”';
+    }
+
+    // --- Closing ---
+    if (/any questions for (me|us)|do you have (any )?questions/i.test(q)) {
+      return 'Ask 1–2 thoughtful questions: team priorities for the first 90 days, how success is measured in this role, or what the biggest challenge is right now. Avoid only asking about salary or leave in the first interview.';
+    }
+
+    // --- HTML / CSS / JS / React (keep existing quality) ---
+    if (/what is html|html and why/i.test(q)) {
+      return 'HTML structures web content (text, links, images, forms). Browsers turn it into the page. CSS styles it; JavaScript adds behavior. Without clear HTML structure, styling and accessibility suffer.';
+    }
+    if (/semantic html/i.test(q)) {
+      return 'Semantic tags describe meaning: header, nav, main, article, section, footer. They help accessibility, SEO, and maintainability versus using only divs.';
     }
     if (/box model/i.test(q)) {
-      return 'The CSS box model is content + padding + border + margin. Total size depends on box-sizing. With border-box, padding and border are included in width/height, which makes layouts easier.';
+      return 'Content + padding + border + margin. With box-sizing: border-box, padding and border are included in width/height, which makes layouts easier.';
+    }
+    if (/\bvar\b.*\blet\b|\blet\b.*\bconst\b/i.test(q)) {
+      return 'var is function-scoped; let and const are block-scoped. Prefer const by default, let when you need reassignment; avoid var in modern code.';
     }
     if (/== and ===|===/i.test(q)) {
-      return '== allows type coercion (1 == "1" is true). === checks value and type with no coercion (1 === "1" is false). Prefer === and !== in real projects.';
+      return '== allows type coercion; === checks value and type. Prefer === and !== to avoid surprises.';
     }
-    if (/promise|async/i.test(q)) {
-      return 'A Promise represents a value that will be available later (pending, fulfilled, rejected). async/await is cleaner syntax over promises: const data = await fetch(url).then(r => r.json()); Use try/catch to handle errors.';
+    if (/promise|async\/await/i.test(q)) {
+      return 'A Promise is a future value (pending, fulfilled, rejected). async/await makes asynchronous code easier to read; use try/catch for errors.';
     }
-    if (/\breact\b/i.test(q) && /what is react/i.test(q)) {
-      return 'React is a JavaScript library for building user interfaces with components. It uses a Virtual DOM and updates the UI when state or props change, so you describe UI as a function of data.';
+    if (/what is react|react and what problem/i.test(q)) {
+      return 'React is a library for building UIs with components. It uses a Virtual DOM and updates the UI when state or props change.';
     }
     if (/props and state/i.test(q)) {
-      return 'Props are read-only inputs from parent to child. State is data owned by a component that can change (e.g. useState). Updating state re-renders the component. Data flows down via props; events flow up via callbacks.';
+      return 'Props are inputs from parent to child (read-only for the child). State is data the component owns and can change; updating state re-renders the UI.';
     }
-    // Generic but still useful — never the vague "explain the concept" only
-    return 'For this question, a strong answer should: (1) define the term in plain language, (2) show a short code or real example, (3) state one practical benefit or caveat. Question was: "' + String(question || '').slice(0, 120) + '"';
-  }
+    if (/usestate|useeffect|hooks/i.test(q)) {
+      return 'Hooks let function components use state and side effects. useState holds local state; useEffect runs after render for data fetching or subscriptions, with a dependency array.';
+    }
 
+    // --- REST / API ---
+    if (/rest api|what is (an )?api|http methods|get.*post/i.test(q)) {
+      return 'A REST API exposes resources over HTTP. Common methods: GET (read), POST (create), PUT/PATCH (update), DELETE (remove). I would mention status codes and JSON as the usual format.';
+    }
+
+    // --- Generic but ALWAYS tied to THIS question ---
+    // Extract a short topic phrase from the question
+    let topic = raw
+      .replace(/^(hello|hi)[^.]*\.\s*/i, '')
+      .replace(/^(what is|what are|explain|describe|how (do|would|can) you|how does|tell me about|walk me through)\s+/i, '')
+      .replace(/\?.*$/, '')
+      .trim();
+    if (topic.length > 90) topic = topic.slice(0, 90) + '…';
+    if (topic.length < 8) topic = 'this topic';
+
+    if (/^what is|^what are|^explain|^define/i.test(q)) {
+      return 'For "' + topic + '": (1) give a one-sentence definition in plain language, (2) add one short real example from study or work, (3) say when you would use it in this job. Keep it under a minute.';
+    }
+    if (/^how (do|would|can)/i.test(q)) {
+      return 'For "' + topic + '": describe steps in order — prepare, do the main action, check the result. Mention one tool or method you would use and one mistake to avoid.';
+    }
+    if (/difference between|vs\.?/i.test(q)) {
+      return 'Compare both sides clearly: what each is, one key difference, and when you would choose each. Example from real work helps the interviewer trust your answer.';
+    }
+
+    return 'A strong answer on "' + topic + '": start with a clear point, support it with one example from your experience, and link it to this job. Stay structured and under about one minute.';
+  }
 
   window.InterviewQuestions = { buildInterviewQuestions, detectDomain, getModelAnswer };
 })();

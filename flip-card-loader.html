@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MockMaster — Hourglass Loader</title>
+  <link href="assets/css/loader.css" rel="stylesheet" />
+  <style>
+    body {
+      min-height: 100vh; margin: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #273338; flex-direction: column; gap: 1.25rem;
+      font-family: system-ui, sans-serif;
+    }
+    .loader-caption {
+      color: rgba(156,176,128,0.9); font-size: 0.8rem;
+      letter-spacing: 0.12em; text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="hourglass-loader" role="status" aria-label="Loading">
+    <span class="hg-cap-top"></span>
+    <span class="hg-neck"></span>
+    <span class="hg-cap-bottom"></span>
+  </div>
+  <p class="loader-caption">Loading</p>
+</body>
+</html>

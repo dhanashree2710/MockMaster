@@ -16,15 +16,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MockMaster">
   <link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png">
+  <link href="../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <p style="font-family:system-ui;text-align:center;margin-top:3rem;color:#618764;">Redirecting to sign up…</p>
   <script>
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('../sw.js').catch(function (e) { console.warn('SW', e); });
+        navigator.serviceWorker.register('../sw.js').catch(function () { /* ignore file:// */ });
       });
     }
   </script>
+  <script src="../assets/js/global-loader.js"></script>
 </body>
 </html>

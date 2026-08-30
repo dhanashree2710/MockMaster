@@ -1,0 +1,6 @@
+# never commit local keys
+assets/js/config.local.js
+.env
+.env.*
+node_modules/
+.DS_Store

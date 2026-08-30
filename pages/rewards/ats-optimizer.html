@@ -10,6 +10,7 @@
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar-app">
@@ -104,15 +105,28 @@
     }
 
     function extractKeywords(job) {
-      const text = ((job && (job.description || job.raw_text || '')) + ' ' + ((job && job.skills) || []).join(' ')).toLowerCase();
-      const dict = ['sql','python','excel','tableau','power bi','looker','statistics','dashboard','etl','data analysis','data analyst','reporting','kpi','a/b testing','machine learning','pandas','numpy','r ','communication','stakeholder','agile','javascript','react','html','css','node','java','aws','azure','docker','api','rest','git','figma','crm','training','facilitation'];
+      if (!job) return [];
+      const text = ((job.description || job.raw_text || '') + ' ' + ((job.skills || job.requiredSkills || []).join(' '))).toLowerCase();
+      const dict = [
+        'sql','python','excel','tableau','power bi','looker','statistics','dashboard','etl','data analysis','data analyst',
+        'reporting','kpi','a/b testing','machine learning','pandas','numpy','javascript','typescript','react','angular','vue',
+        'next.js','node.js','html','css','java','c++','c#','aws','azure','docker','kubernetes','api','rest','graphql','git',
+        'figma','crm','salesforce','training','facilitation','communication','stakeholder','agile','scrum','leadership',
+        'mentoring','power bi','looker','etl','spark','hadoop','r','tableau','excel','jira','postman','ci/cd'
+      ];
       const found = [];
-      dict.forEach(k => { if (text.includes(k.trim().toLowerCase()) && !found.includes(k.trim())) found.push(k.trim()); });
-      (job.skills || []).forEach(s => {
-        const x = String(s).trim();
-        if (x && !found.some(f => f.toLowerCase() === x.toLowerCase())) found.push(x);
+      dict.forEach(k => {
+        if (text.includes(k.trim().toLowerCase()) && !found.some(f => f.toLowerCase() === k.trim().toLowerCase())) {
+          found.push(k.trim());
+        }
       });
-      return found.slice(0, 24);
+      // Prefer explicit skills arrays from parsed JD
+      const fromJob = [].concat(job.skills || []).concat(job.requiredSkills || []).concat(job.preferredSkills || []);
+      fromJob.forEach(s => {
+        const x = String(s).trim();
+        if (x && x.length < 40 && !found.some(f => f.toLowerCase() === x.toLowerCase())) found.push(x);
+      });
+      return found.slice(0, 28);
     }
 
     function resumeBlob(resume) {
@@ -146,43 +160,71 @@
     }
 
     function buildOptimized(resume, job, missing) {
+      const targetRole = (job && (job.position || job.title)) || resume.currentRole || 'Professional';
       const lines = [];
+      // Header — use target role for ATS title match
       lines.push((resume.name || 'CANDIDATE').toUpperCase());
-      lines.push([resume.currentRole || job.position || '', resume.location || ''].filter(Boolean).join(' | '));
+      lines.push([targetRole, resume.location || ''].filter(Boolean).join(' | '));
       lines.push([resume.email, resume.phone].filter(Boolean).join(' | '));
       lines.push('');
       lines.push('PROFESSIONAL SUMMARY');
-      const summary = resume.summary || ('Results-oriented ' + (resume.currentRole || 'professional') + ' targeting ' + (job.position || 'this role') + '. Experienced in delivering measurable outcomes aligned with business goals.');
-      let sum = summary;
-      missing.slice(0, 3).forEach(k => {
-        if (!sum.toLowerCase().includes(k.toLowerCase())) sum += ' Familiar with ' + k + '.';
+      let sum = resume.summary || (
+        'Results-oriented ' + (resume.currentRole || 'professional') +
+        ' targeting the ' + targetRole + ' role. Experienced in delivering measurable outcomes aligned with business goals.'
+      );
+      // Inject top missing keywords naturally into summary
+      missing.slice(0, 4).forEach(k => {
+        if (!sum.toLowerCase().includes(k.toLowerCase())) {
+          sum = sum.replace(/\.$/, '') + '. Skilled in ' + k + '.';
+        }
       });
+      // Mention company/role context if available
+      if (job && job.company) {
+        sum += ' Preparing for opportunities at ' + job.company + '.';
+      }
       lines.push(sum);
       lines.push('');
       lines.push('CORE SKILLS');
       const skills = []
         .concat(resume.skills?.technical || [])
+        .concat(resume.skills?.tools || [])
         .concat(resume.skills?.soft || [])
-        .concat(missing.slice(0, 8));
-      lines.push([...new Set(skills)].join(' · '));
+        .concat(missing.slice(0, 10));
+      // Put JD keywords first for ATS scanners
+      const ordered = [...new Set([...(job.skills || job.requiredSkills || []).slice(0, 8), ...skills])];
+      lines.push(ordered.join(' · '));
       lines.push('');
       lines.push('PROFESSIONAL EXPERIENCE');
       (resume.experience || []).forEach(exp => {
         lines.push('');
         lines.push((exp.role || 'Role') + (exp.company ? ' | ' + exp.company : ''));
         lines.push([exp.duration, exp.location].filter(Boolean).join(' | '));
-        (exp.responsibilities || []).slice(0, 6).forEach(r => {
-          lines.push('• ' + rewriteBullet(r, missing));
-        });
-        if (!(exp.responsibilities || []).length) {
-          lines.push('• Delivered outcomes aligned with ' + (job.position || 'team goals') + (missing[0] ? ', including ' + missing[0] : '') + '.');
+        const bullets = (exp.responsibilities || []).slice(0, 6);
+        if (bullets.length) {
+          bullets.forEach(r => lines.push('• ' + rewriteBullet(r, missing)));
+        } else {
+          lines.push('• Delivered outcomes aligned with ' + targetRole + (missing[0] ? ', including ' + missing[0] : '') + '.');
         }
       });
+      // Mirror key JD responsibilities as "aligned" bullets if experience is thin
+      if ((resume.experience || []).length === 0 && (job.responsibilities || []).length) {
+        lines.push('');
+        lines.push(targetRole + ' | Target Role Alignment');
+        (job.responsibilities || []).slice(0, 4).forEach(r => {
+          lines.push('• ' + rewriteBullet(r, missing));
+        });
+      }
       if (resume.projects && resume.projects.length) {
         lines.push('');
         lines.push('PROJECTS');
         resume.projects.forEach(pr => {
-          lines.push('• ' + (pr.name || 'Project') + (pr.description ? ' — ' + pr.description : ''));
+          let desc = pr.description || '';
+          missing.slice(0, 2).forEach(k => {
+            if (desc && !desc.toLowerCase().includes(k.toLowerCase())) {
+              desc = desc.replace(/\.$/, '') + ' (using ' + k + ')';
+            }
+          });
+          lines.push('• ' + (pr.name || 'Project') + (desc ? ' — ' + desc : ''));
         });
       }
       if (resume.education && resume.education.length) {
@@ -193,7 +235,7 @@
         });
       }
       lines.push('');
-      lines.push('— Optimized for ATS keywords from: ' + (job.position || job.company || 'target role') + ' · MockMaster');
+      lines.push('— Optimized for ATS keywords from: ' + targetRole + (job.company ? ' @ ' + job.company : '') + ' · MockMaster');
       return lines.join('\n');
     }
 
@@ -250,7 +292,8 @@
         // Word-compatible HTML
         const html = '<html><head><meta charset="utf-8"><title>ATS Resume</title></head><body><pre style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap;">' +
           text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
-          '</pre></body></html>';
+          '</pre>  <script src="../../assets/js/global-loader.js"></script>
+</body></html>';
         downloadText(html, name + '_ATS_Optimized.doc', 'application/msword');
       };
     }
