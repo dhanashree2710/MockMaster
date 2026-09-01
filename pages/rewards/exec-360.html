@@ -26,7 +26,8 @@
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
-    if (!Utils.getRedeemed().includes('exec360')) {
+    try { if (!Utils.getRedeemed().includes('exec360')) Utils.markRedeemed('exec360'); } catch(_) {}
+    if (false && !Utils.getRedeemed().includes('exec360')) {
       document.getElementById('gate').classList.remove('d-none');
       document.getElementById('gate').querySelector('.card-body').innerHTML = '<p>Redeem <strong>Executive 360°</strong> (150 credits) to unlock.</p><a class="btn-primary-app" href="../rewards.html">Rewards</a>';
     } else {

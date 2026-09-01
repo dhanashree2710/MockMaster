@@ -154,7 +154,7 @@
       {
         id: 'exec360',
         tag: 'Most Popular', tagClass: 'tag-popular',
-        cost: 150,
+        cost: 50,
         title: 'Executive 360° AI Interview Breakdown',
         desc: 'Comprehensive analysis of your interview transcript with line-by-line sentiment, executive presence scoring, and STAR metrics.',
         href: 'rewards/exec-360.html'
@@ -162,23 +162,23 @@
       {
         id: 'voiceReplay',
         tag: 'Audio AI', tagClass: 'tag-audio',
-        cost: 200,
+        cost: 50,
         title: 'Live AI Voice Tone & Pace Replay',
         desc: 'Speech pace audit (WPM), filler-word detection, pitch stability analysis, and conversational confidence heatmap.',
         href: 'rewards/voice-analysis.html'
       },
       {
         id: 'atsOptimizer',
-        tag: 'ATS Scanner', tagClass: 'tag-ats',
-        cost: 120,
-        title: '1-on-1 AI Resume & ATS Alignment Optimizer',
-        desc: 'Deep scan between your resume keywords and the job description. Highlights missing skills, ATS gaps, and bullet rewrites.',
-        href: 'rewards/ats-optimizer.html'
+        tag: 'Free · ATS', tagClass: 'tag-ats',
+        cost: 0,
+        title: 'AI Resume & ATS Alignment Optimizer',
+        desc: 'Upload resume + job description → generate ATS-aligned resume → download .txt / .doc. Free core tool.',
+        href: 'resume/generate-from-jd.html'
       },
       {
         id: 'tier1Pack',
         tag: 'Premium Pack', tagClass: 'tag-pack',
-        cost: 250,
+        cost: 50,
         title: 'Tier-1 Tech Insider Question Pack',
         desc: 'Curated top 30 real-world behavioral and system architecture questions recently asked at Google, Stripe, Meta, and Microsoft.',
         href: 'rewards/tier1-pack.html'
@@ -188,15 +188,15 @@
     function ensureStarterCredits() {
       // If wallet is empty (first visit / cleared storage), seed welcome credits
       if (Utils.getCredits() <= 0) {
-        Utils.setCredits(100);
+        Utils.setCredits(200);
         const hist = Utils.getCreditsHistory();
         if (!hist.length) {
           try {
             Utils.setStored('mm_credits_history', [{
-              amount: 100,
+              amount: 200,
               reason: 'Welcome bonus — starter credits',
               at: new Date().toISOString(),
-              balance: 100
+              balance: 200
             }]);
           } catch (_) {}
         }
@@ -225,7 +225,7 @@
               ${isOwned
                 ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Use now</a>`
                 : `<button type="button" class="btn-redeem" data-id="${r.id}" data-cost="${r.cost}" ${canBuy ? '' : 'disabled'}>
-                    <i class="bi bi-stars me-1"></i> Redeem for ${r.cost} Pts
+                    <i class="bi bi-stars me-1"></i> ${r.cost <= 0 ? "Open free" : ("Redeem for " + r.cost + " Pts")}
                   </button>`}
             </div>
           </div>`;
@@ -242,7 +242,7 @@
             if (item.href) location.href = item.href;
             return;
           }
-          if (!Utils.spendCredits(cost, 'Redeem: ' + item.title)) {
+          if (cost > 0 && !Utils.spendCredits(cost, 'Redeem: ' + item.title)) {
             Utils.showToast('Not enough credits. Complete more interviews or check balance above.', 'warning');
             return;
           }

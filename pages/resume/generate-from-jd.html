@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2B5748">
+  <title>Generate Resume from Job — MockMaster</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../assets/css/variables.css" rel="stylesheet">
+  <link href="../../assets/css/style.css" rel="stylesheet">
+  <link href="../../assets/css/responsive.css" rel="stylesheet">
+  <link href="../../assets/css/loader.css" rel="stylesheet">
+  <style>
+    .gen-step { border-left: 3px solid var(--accent, #9CB080); padding-left: 1rem; margin-bottom: 1.25rem; }
+    .gen-step h6 { color: var(--primary, #2B5748); font-weight: 700; }
+    #outBox { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; min-height: 320px; }
+    .kw-tag { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.75rem; margin: 0.15rem; background: rgba(43,87,72,.1); color: #2B5748; }
+    .kw-tag.miss { background: rgba(196,92,74,.12); color: #c45c4a; }
+  </style>
+</head>
+<body>
+  <nav class="navbar-app">
+    <a href="../dashboard.html" class="navbar-brand-app">
+      <img src="../../assets/images/mockmaster-logo.png" alt="MockMaster" class="brand-logo-img"> MockMaster
+    </a>
+    <div class="navbar-actions">
+      <a href="upload-resume.html" class="btn-outline-app btn-sm">Upload Resume</a>
+      <a href="../job/job-description.html" class="btn-outline-app btn-sm">Job Description</a>
+      <button class="btn-ghost" data-theme-toggle type="button"><i class="bi bi-moon-stars"></i></button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <h1>Generate Resume for Job Description</h1>
+        <p>Upload or paste your resume + job description → get an ATS-aligned resume you can download.</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <div class="card-app mb-3">
+            <div class="card-body">
+              <div class="gen-step">
+                <h6><i class="bi bi-1-circle me-1"></i> Your resume</h6>
+                <p class="small text-muted mb-2" id="resumeStatus">Loading stored resume…</p>
+                <textarea id="resumeText" class="form-control form-control-app" rows="8" placeholder="Paste resume text here, or upload a file on the Upload Resume page first."></textarea>
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                  <a href="upload-resume.html" class="btn-outline-app btn-sm"><i class="bi bi-upload me-1"></i>Upload file</a>
+                  <button type="button" class="btn-outline-app btn-sm" id="btnLoadStoredResume"><i class="bi bi-arrow-repeat me-1"></i>Load saved</button>
+                </div>
+              </div>
+
+              <div class="gen-step">
+                <h6><i class="bi bi-2-circle me-1"></i> Job description</h6>
+                <p class="small text-muted mb-2" id="jobStatus">Loading stored job…</p>
+                <textarea id="jobText" class="form-control form-control-app" rows="8" placeholder="Paste the full job description here."></textarea>
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                  <a href="../job/job-description.html" class="btn-outline-app btn-sm"><i class="bi bi-briefcase me-1"></i>Job page</a>
+                  <button type="button" class="btn-outline-app btn-sm" id="btnLoadStoredJob"><i class="bi bi-arrow-repeat me-1"></i>Load saved</button>
+                </div>
+              </div>
+
+              <button type="button" class="btn-primary-app w-100" id="btnGenerate">
+                <i class="bi bi-magic me-1"></i> Generate optimized resume
+              </button>
+            </div>
+          </div>
+
+          <div class="card-app" id="statsCard" style="display:none;">
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="fw-bold">Keyword match</span>
+                <span id="matchPct" class="fw-bold" style="color:var(--primary)">—</span>
+              </div>
+              <div class="mb-2">
+                <div class="small text-muted mb-1">Matched</div>
+                <div id="matchedTags"></div>
+              </div>
+              <div>
+                <div class="small text-muted mb-1">Missing (injected into resume)</div>
+                <div id="missingTags"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card-app">
+            <div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h6 class="fw-bold mb-0">Optimized resume</h6>
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="button" class="btn-outline-app btn-sm" id="btnCopy" disabled><i class="bi bi-clipboard me-1"></i>Copy</button>
+                  <button type="button" class="btn-primary-app btn-sm" id="btnDlTxt" disabled><i class="bi bi-download me-1"></i>.txt</button>
+                  <button type="button" class="btn-primary-app btn-sm" id="btnDlDoc" disabled style="background:linear-gradient(135deg,#618764,#2B5748)"><i class="bi bi-file-earmark-word me-1"></i>.doc</button>
+                </div>
+              </div>
+              <textarea id="outBox" class="form-control form-control-app" placeholder="Click Generate to create an ATS-aligned resume tailored to the job description."></textarea>
+              <p class="text-muted small mt-2 mb-0">Edit freely, then download. Use this version when applying so ATS can see keywords from the job.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span>© 2026 <span class="brand-name">MockMaster</span>. All Rights Reserved.</span>
+    <span class="footer-sep">|</span>
+    <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/js/config.js"></script>
+  <script src="../../assets/js/theme.js"></script>
+  <script src="../../assets/js/utils.js"></script>
+  <script src="../../assets/js/auth-guard.js"></script>
+  <script>
+(function () {
+  var RESUME_KEY = (window.STORAGE_KEYS && STORAGE_KEYS.resume) || 'ipa_resume';
+  var JOB_KEY = (window.STORAGE_KEYS && STORAGE_KEYS.job) || 'ipa_job';
+
+  function getJSON(key) {
+    try {
+      var v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+
+  function resumeToPlain(r) {
+    if (!r) return '';
+    if (typeof r === 'string') return r;
+    var lines = [];
+    if (r.name) lines.push(r.name);
+    if (r.email || r.phone) lines.push([r.email, r.phone].filter(Boolean).join(' | '));
+    if (r.currentRole) lines.push(r.currentRole);
+    if (r.summary) { lines.push(''); lines.push(r.summary); }
+    var skills = [].concat(
+      (r.skills && r.skills.technical) || [],
+      (r.skills && r.skills.tools) || [],
+      (r.skills && r.skills.soft) || [],
+      r.competencies || []
+    );
+    if (skills.length) {
+      lines.push('');
+      lines.push('SKILLS');
+      lines.push(skills.join(', '));
+    }
+    (r.experience || []).forEach(function (e) {
+      lines.push('');
+      lines.push((e.role || 'Role') + (e.company ? ' | ' + e.company : ''));
+      if (e.duration) lines.push(e.duration);
+      (e.responsibilities || []).forEach(function (b) { lines.push('• ' + b); });
+    });
+    (r.projects || []).forEach(function (p) {
+      lines.push('');
+      lines.push((p.name || 'Project') + (p.description ? ' — ' + p.description : ''));
+    });
+    (r.education || []).forEach(function (ed) {
+      lines.push([ed.degree, ed.university, ed.year].filter(Boolean).join(' | '));
+    });
+    if (r.rawText || r.raw_text) {
+      return String(r.rawText || r.raw_text);
+    }
+    return lines.join('\n');
+  }
+
+  function jobToPlain(j) {
+    if (!j) return '';
+    if (typeof j === 'string') return j;
+    var parts = [];
+    if (j.title || j.position) parts.push((j.title || j.position) + (j.company ? ' @ ' + j.company : ''));
+    if (j.description || j.raw_text || j.rawText) parts.push(j.description || j.raw_text || j.rawText);
+    var sk = [].concat(j.skills || [], j.requiredSkills || [], j.preferredSkills || []);
+    if (sk.length) parts.push('Skills: ' + sk.join(', '));
+    (j.responsibilities || []).forEach(function (r) { parts.push('- ' + r); });
+    return parts.join('\n\n');
+  }
+
+  function extractKeywords(text) {
+    var t = (text || '').toLowerCase();
+    var dict = [
+      'sql','python','excel','tableau','power bi','looker','statistics','dashboard','etl','data analysis',
+      'data analyst','reporting','kpi','machine learning','pandas','numpy','javascript','typescript','react',
+      'angular','vue','next.js','node.js','html','css','java','c++','c#','aws','azure','docker','kubernetes',
+      'api','rest','graphql','git','figma','salesforce','agile','scrum','leadership','communication',
+      'stakeholder','jira','ci/cd','spark','hadoop','mongodb','postgresql','mysql','redis','linux'
+    ];
+    var found = [];
+    dict.forEach(function (k) {
+      if (t.indexOf(k) !== -1 && found.indexOf(k) === -1) found.push(k);
+    });
+    // also pull Capitalized skill-like tokens from JD
+    var caps = (text || '').match(/\b[A-Z][a-zA-Z+#.]{1,20}\b/g) || [];
+    caps.forEach(function (c) {
+      var low = c.toLowerCase();
+      if (low.length > 2 && found.indexOf(low) === -1 && dict.indexOf(low) !== -1) found.push(low);
+    });
+    return found.slice(0, 30);
+  }
+
+  function parseResumeRough(text) {
+    var lines = (text || '').split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    var name = lines[0] || 'CANDIDATE';
+    var email = ((text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
+    var phone = ((text || '').match(/(\+?\d[\d\s\-()]{8,}\d)/) || [])[0] || '';
+    var bullets = lines.filter(function (l) { return /^[•\-\*]/.test(l) || l.length > 40; });
+    return { name: name, email: email, phone: phone, lines: lines, bullets: bullets, raw: text || '' };
+  }
+
+  function parseJobRough(text) {
+    var titleMatch = (text || '').split(/\n/)[0] || 'Target Role';
+    var keywords = extractKeywords(text);
+    return { title: titleMatch.slice(0, 80), keywords: keywords, raw: text || '' };
+  }
+
+  function buildOptimized(resumePlain, jobPlain) {
+    var r = parseResumeRough(resumePlain);
+    var j = parseJobRough(jobPlain);
+    var blob = (resumePlain || '').toLowerCase();
+    var matched = j.keywords.filter(function (k) { return blob.indexOf(k.toLowerCase()) !== -1; });
+    var missing = j.keywords.filter(function (k) { return blob.indexOf(k.toLowerCase()) === -1; });
+
+    var lines = [];
+    lines.push((r.name || 'CANDIDATE').toUpperCase());
+    lines.push(j.title);
+    if (r.email || r.phone) lines.push([r.email, r.phone].filter(Boolean).join(' | '));
+    lines.push('');
+    lines.push('PROFESSIONAL SUMMARY');
+    var sum = 'Results-oriented professional targeting ' + j.title +
+      '. Experienced in delivering measurable outcomes aligned with business goals.';
+    missing.slice(0, 4).forEach(function (k) {
+      if (sum.toLowerCase().indexOf(k) === -1) sum += ' Skilled in ' + k + '.';
+    });
+    lines.push(sum);
+    lines.push('');
+    lines.push('CORE SKILLS');
+    var skillLine = [].concat(j.keywords.slice(0, 12), matched).filter(function (v, i, a) {
+      return a.indexOf(v) === i;
+    }).join(' · ');
+    lines.push(skillLine || 'See experience below');
+    lines.push('');
+    lines.push('PROFESSIONAL EXPERIENCE');
+    lines.push('');
+    // Prefer original bullets, inject missing keywords
+    var used = 0;
+    (r.bullets || []).slice(0, 12).forEach(function (b) {
+      var clean = b.replace(/^[•\-\*]+\s*/, '').trim();
+      if (!clean) return;
+      var low = clean.toLowerCase();
+      var inject = missing.find(function (k) { return low.indexOf(k.toLowerCase()) === -1; });
+      if (inject && clean.length < 160) {
+        clean = clean.replace(/\.$/, '') + ', utilizing ' + inject + '.';
+      }
+      if (!/^(led|built|designed|developed|created|managed|delivered|analyzed|improved|implemented)/i.test(clean)) {
+        clean = 'Delivered ' + clean.charAt(0).toLowerCase() + clean.slice(1);
+      }
+      lines.push('• ' + clean);
+      used++;
+    });
+    if (used === 0) {
+      missing.slice(0, 5).forEach(function (k) {
+        lines.push('• Delivered outcomes using ' + k + ' aligned with ' + j.title + ' requirements.');
+      });
+    }
+    lines.push('');
+    lines.push('— Optimized for ATS keywords from: ' + j.title + ' · MockMaster');
+    return {
+      text: lines.join('\n'),
+      matched: matched,
+      missing: missing,
+      pct: j.keywords.length ? Math.round((matched.length / j.keywords.length) * 100) : 0,
+      name: (r.name || 'Resume').replace(/\s+/g, '_')
+    };
+  }
+
+  function downloadBlob(text, filename, mime) {
+    var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 800);
+  }
+
+  function loadStored() {
+    var resume = getJSON(RESUME_KEY);
+    var job = getJSON(JOB_KEY);
+    var rt = document.getElementById('resumeText');
+    var jt = document.getElementById('jobText');
+    var rs = document.getElementById('resumeStatus');
+    var js = document.getElementById('jobStatus');
+
+    if (resume) {
+      rt.value = resumeToPlain(resume);
+      rs.textContent = 'Loaded saved resume' + (resume.name ? ': ' + resume.name : '') + '. You can edit or replace.';
+      rs.style.color = 'var(--success, #4a7c59)';
+    } else {
+      rs.textContent = 'No saved resume. Paste text below or upload a file first.';
+      rs.style.color = 'var(--warning, #c4922a)';
+    }
+    if (job) {
+      jt.value = jobToPlain(job);
+      js.textContent = 'Loaded saved job' + ((job.title || job.position) ? ': ' + (job.title || job.position) : '') + '.';
+      js.style.color = 'var(--success, #4a7c59)';
+    } else {
+      js.textContent = 'No saved job. Paste the job description below.';
+      js.style.color = 'var(--warning, #c4922a)';
+    }
+  }
+
+  function setOutput(result) {
+    var box = document.getElementById('outBox');
+    box.value = result.text;
+    document.getElementById('btnCopy').disabled = false;
+    document.getElementById('btnDlTxt').disabled = false;
+    document.getElementById('btnDlDoc').disabled = false;
+    document.getElementById('statsCard').style.display = '';
+    document.getElementById('matchPct').textContent = result.pct + '%';
+    document.getElementById('matchedTags').innerHTML = result.matched.length
+      ? result.matched.map(function (k) { return '<span class="kw-tag">' + k + '</span>'; }).join('')
+      : '<span class="text-muted small">—</span>';
+    document.getElementById('missingTags').innerHTML = result.missing.length
+      ? result.missing.map(function (k) { return '<span class="kw-tag miss">' + k + '</span>'; }).join('')
+      : '<span class="text-muted small">None</span>';
+    try { localStorage.setItem('mm_optimized_resume', result.text); } catch (e) {}
+    window.__lastGenName = result.name;
+  }
+
+  document.getElementById('btnLoadStoredResume').addEventListener('click', function () {
+    var resume = getJSON(RESUME_KEY);
+    if (!resume) {
+      alert('No saved resume. Upload one first or paste text.');
+      return;
+    }
+    document.getElementById('resumeText').value = resumeToPlain(resume);
+  });
+  document.getElementById('btnLoadStoredJob').addEventListener('click', function () {
+    var job = getJSON(JOB_KEY);
+    if (!job) {
+      alert('No saved job. Paste a job description or use the Job page.');
+      return;
+    }
+    document.getElementById('jobText').value = jobToPlain(job);
+  });
+
+  document.getElementById('btnGenerate').addEventListener('click', function () {
+    var resumePlain = (document.getElementById('resumeText').value || '').trim();
+    var jobPlain = (document.getElementById('jobText').value || '').trim();
+    if (resumePlain.length < 20) {
+      alert('Please provide resume text (paste or upload first).');
+      return;
+    }
+    if (jobPlain.length < 30) {
+      alert('Please paste a job description (at least a few lines).');
+      return;
+    }
+    var btn = document.getElementById('btnGenerate');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+    setTimeout(function () {
+      try {
+        var result = buildOptimized(resumePlain, jobPlain);
+        setOutput(result);
+        if (window.Utils && Utils.showToast) Utils.showToast('Resume generated — ready to download', 'success');
+      } catch (err) {
+        console.error(err);
+        alert('Could not generate resume. Please try again.');
+      }
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-magic me-1"></i> Generate optimized resume';
+    }, 400);
+  });
+
+  document.getElementById('btnCopy').addEventListener('click', function () {
+    var t = document.getElementById('outBox').value;
+    if (!t) return;
+    navigator.clipboard.writeText(t).then(function () {
+      if (window.Utils && Utils.showToast) Utils.showToast('Copied to clipboard', 'success');
+      else alert('Copied!');
+    }).catch(function () {
+      document.getElementById('outBox').select();
+      document.execCommand('copy');
+    });
+  });
+
+  document.getElementById('btnDlTxt').addEventListener('click', function () {
+    var t = document.getElementById('outBox').value;
+    if (!t) return;
+    var name = window.__lastGenName || 'Resume';
+    downloadBlob(t, name + '_ATS_Optimized.txt', 'text/plain;charset=utf-8');
+  });
+
+  document.getElementById('btnDlDoc').addEventListener('click', function () {
+    var t = document.getElementById('outBox').value;
+    if (!t) return;
+    var name = window.__lastGenName || 'Resume';
+    var safe = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var html = '<html><head><meta charset="utf-8"><title>ATS Resume</title></head><body><pre style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap;">' +
+      safe + '</pre></body></html>';
+    downloadBlob(html, name + '_ATS_Optimized.doc', 'application/msword');
+  });
+
+  loadStored();
+})();
+  </script>
+  <script src="../../assets/js/global-loader.js"></script>
+</body>
+</html>

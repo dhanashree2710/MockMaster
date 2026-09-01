@@ -24,7 +24,8 @@
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
     const out = document.getElementById('out');
-    if (!Utils.getRedeemed().includes('voiceReplay')) {
+    try { if (!Utils.getRedeemed().includes('voiceReplay')) Utils.markRedeemed('voiceReplay'); } catch(_) {}
+    if (false && !Utils.getRedeemed().includes('voiceReplay')) {
       out.innerHTML = '<div class="card-app"><div class="card-body"><p>Redeem <strong>Live AI Voice Tone & Pace Replay</strong> (200 credits) to unlock.</p><a href="../rewards.html" class="btn-primary-app">Rewards</a></div></div>';
     } else {
       const report = JSON.parse(sessionStorage.getItem('ipa_last_report')||'null') || (JSON.parse(localStorage.getItem('ipa_reports_archive')||'[]')[0]);

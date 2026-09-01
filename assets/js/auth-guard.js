@@ -24,7 +24,7 @@
     const path = window.location.pathname;
     if (path.includes('/pages/resume/') || path.includes('/pages/job/') ||
         path.includes('/pages/preparation/') || path.includes('/pages/interview/') ||
-        path.includes('/pages/report/')) {
+        path.includes('/pages/report/') || path.includes('/pages/rewards/')) {
       return '../../pages/login.html';
     }
     if (path.includes('/pages/')) return 'login.html';
