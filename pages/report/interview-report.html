@@ -530,15 +530,16 @@
             try {
               if (doc.GState && doc.setGState) {
                 doc.saveGraphicsState();
-                doc.setGState(new doc.GState({ opacity: 0.08 }));
+                doc.setGState(new doc.GState({ opacity: 0.04 }));
               }
             } catch (_) {}
-            doc.setTextColor(180, 195, 170);
+            // Soft light sage — visible but not dark/distracting
+            doc.setTextColor(210, 218, 205);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(64);
+            doc.setFontSize(56);
             var text = 'MockMaster';
             var tw = doc.getTextWidth(text);
-            doc.text(text, (pageW - tw) / 2 + 20, pageH / 2 + 40, { angle: 32 });
+            doc.text(text, (pageW - tw) / 2 + 16, pageH / 2 + 36, { angle: 32 });
             try {
               if (doc.restoreGraphicsState) doc.restoreGraphicsState();
             } catch (_) {}

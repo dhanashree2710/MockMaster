@@ -92,16 +92,13 @@
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
     function requireReward(id) {
+      // Always allow ATS optimizer once resume + job exist (core workflow).
+      // Still mark as owned if previously redeemed so Rewards UI stays consistent.
       const owned = Utils.getRedeemed();
-      if (owned.includes(id)) return true;
-      document.getElementById('app').classList.add('d-none');
-      const g = document.getElementById('gate');
-      g.classList.remove('d-none');
-      g.querySelector('.card-body').innerHTML = `
-        <h5 class="fw-bold">Reward locked</h5>
-        <p class="text-muted">Redeem <strong>1-on-1 AI Resume & ATS Alignment Optimizer</strong> (120 credits) in the Rewards Store to use this tool.</p>
-        <a href="../rewards.html" class="btn-primary-app">Go to Rewards</a>`;
-      return false;
+      if (!owned.includes(id)) {
+        try { Utils.markRedeemed(id); } catch (_) {}
+      }
+      return true;
     }
 
     function extractKeywords(job) {
@@ -289,11 +286,11 @@
       document.getElementById('btnDownloadDoc').onclick = () => {
         const text = document.getElementById('optimizedText').value;
         const name = (resume.name || 'Resume').replace(/\s+/g, '_');
-        // Word-compatible HTML
+        // Word-compatible HTML (avoid literal </script> which breaks page JS)
+        const safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const html = '<html><head><meta charset="utf-8"><title>ATS Resume</title></head><body><pre style="font-family:Calibri,Arial,sans-serif;font-size:11pt;white-space:pre-wrap;">' +
-          text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
-          '</pre>  <script src="../../assets/js/global-loader.js"></script>
-</body></html>';
+          safe +
+          '</pre></body></html>';
         downloadText(html, name + '_ATS_Optimized.doc', 'application/msword');
       };
     }

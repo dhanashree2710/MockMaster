@@ -162,17 +162,28 @@ function initSpeechRecognition() {
   rec.continuous = false;
   rec.interimResults = false;
   rec.lang = 'en-IN';
+  let lastTranscript = '';
   rec.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    document.getElementById('answer-input').value += (document.getElementById('answer-input').value ? ' ' : '') + text;
+    const text = (e.results[0] && e.results[0][0] && e.results[0][0].transcript) || '';
+    if (!text) return;
+    // Prevent duplicate appends of the same phrase
+    if (text.trim().toLowerCase() === lastTranscript) return;
+    lastTranscript = text.trim().toLowerCase();
+    const box = document.getElementById('answer-input');
+    if (!box) return;
+    const cur = (box.value || '').trim();
+    if (cur.toLowerCase().endsWith(text.trim().toLowerCase())) return;
+    box.value = (cur ? cur + ' ' : '') + text.trim();
   };
   rec.onend = () => {
     isRecording = false;
-    document.getElementById('mic-btn').classList.remove('recording');
+    lastTranscript = '';
+    document.getElementById('mic-btn')?.classList.remove('recording');
   };
   rec.onerror = () => {
     isRecording = false;
-    document.getElementById('mic-btn').classList.remove('recording');
+    lastTranscript = '';
+    document.getElementById('mic-btn')?.classList.remove('recording');
     showToast('Microphone error. Please type your answer.', 'warning');
   };
   return rec;

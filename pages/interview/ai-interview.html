@@ -467,23 +467,24 @@
       try {
         // Stop any previous instance cleanly
         if (recognition) {
-          try { recognition.onend = null; recognition.stop(); } catch (_) {}
+          try { recognition.onend = null; recognition.onresult = null; recognition.stop(); } catch (_) {}
           recognition = null;
         }
 
         recognition = new SpeechRecognitionAPI();
-        // continuous=false is more stable on mobile; we restart only while user holds mic on
-        recognition.continuous = true;
+        // continuous=false is far more stable and avoids duplicate transcripts
+        recognition.continuous = false;
         recognition.interimResults = true;
-        // Match speech recognition language to interview setup (Indian accents)
         const ttsCfg = (window.APP_CONFIG && APP_CONFIG.tts) || {};
         const langMap = ttsCfg.langMap || { en: 'en-IN' };
         recognition.lang = langMap[interviewLang] || (interviewLang === 'en' ? 'en-IN' : (interviewLang + '-IN'));
         recognition.maxAlternatives = 1;
 
-        // Snapshot of committed text when mic starts — never re-append old finals
-        let committed = (document.getElementById('answerInput').value || '').trim();
-        let lastFinalSnippet = '';
+        // Snapshot when mic starts — only append NEW finals once
+        let baseText = (document.getElementById('answerInput').value || '').trim();
+        let sessionFinals = '';
+        let lastFinalNorm = '';
+        let processedResultIndex = 0;
 
         recognition.onstart = () => {
           isRecording = true;
@@ -492,36 +493,34 @@
 
         recognition.onresult = (event) => {
           let interim = '';
-          let newFinals = '';
+          // Only process results from resultIndex forward to avoid re-processing
           for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (i < processedResultIndex && event.results[i].isFinal) continue;
             const t = (event.results[i][0].transcript || '').trim();
             if (!t) continue;
             if (event.results[i].isFinal) {
-              // Skip if this final is the same as the previous final (mobile re-fire)
-              if (t.toLowerCase() === lastFinalSnippet.toLowerCase()) continue;
-              // Skip if already at the end of committed text
-              if (committed.toLowerCase().endsWith(t.toLowerCase())) continue;
-              newFinals += (newFinals ? ' ' : '') + t;
-              lastFinalSnippet = t;
+              const norm = t.toLowerCase().replace(/\s+/g, ' ');
+              // Skip exact duplicate finals (common mobile bug)
+              if (norm === lastFinalNorm) continue;
+              // Skip if this text is already at the end of what we have
+              const soFar = (sessionFinals || '').toLowerCase();
+              if (soFar.endsWith(norm) || soFar.includes(norm)) continue;
+              sessionFinals = (sessionFinals ? sessionFinals + ' ' : '') + t;
+              lastFinalNorm = norm;
+              processedResultIndex = i + 1;
             } else {
               interim += (interim ? ' ' : '') + t;
             }
           }
-          if (newFinals) {
-            committed = (committed ? committed + ' ' : '') + newFinals;
-            committed = dedupeSpeechText(committed);
-          }
           const box = document.getElementById('answerInput');
-          const display = dedupeSpeechText(
-            (committed + (interim ? ' ' + interim : '')).trim()
-          );
-          box.value = display;
+          if (!box) return;
+          const combined = [baseText, sessionFinals, interim].filter(Boolean).join(' ');
+          box.value = dedupeSpeechText(combined);
           document.getElementById('submitBtn').disabled = !box.value.trim();
         };
 
         recognition.onerror = (err) => {
           console.warn('Speech error:', err);
-          // Ignore benign errors that fire on mobile when stopping
           if (err.error === 'aborted' || err.error === 'no-speech') return;
           isRecording = false;
           setMicUI(false);
@@ -531,8 +530,17 @@
         };
 
         recognition.onend = () => {
-          // On mobile, continuous mode often ends after a pause — restart only if still recording
+          // Auto-restart only if user still wants to record (pause recovery)
           if (isRecording) {
+            // Commit session finals into base so restart does not re-append
+            if (sessionFinals) {
+              baseText = dedupeSpeechText([baseText, sessionFinals].filter(Boolean).join(' '));
+              sessionFinals = '';
+              lastFinalNorm = '';
+              processedResultIndex = 0;
+              const box = document.getElementById('answerInput');
+              if (box) box.value = baseText;
+            }
             try {
               recognition.start();
               return;
@@ -540,7 +548,6 @@
           }
           isRecording = false;
           setMicUI(false);
-          // Final cleanup pass
           const box = document.getElementById('answerInput');
           if (box) box.value = dedupeSpeechText(box.value);
         };

@@ -185,6 +185,24 @@
       }
     ];
 
+    function ensureStarterCredits() {
+      // If wallet is empty (first visit / cleared storage), seed welcome credits
+      if (Utils.getCredits() <= 0) {
+        Utils.setCredits(100);
+        const hist = Utils.getCreditsHistory();
+        if (!hist.length) {
+          try {
+            Utils.setStored('mm_credits_history', [{
+              amount: 100,
+              reason: 'Welcome bonus — starter credits',
+              at: new Date().toISOString(),
+              balance: 100
+            }]);
+          } catch (_) {}
+        }
+      }
+    }
+
     function refreshBalance() {
       document.getElementById('creditBalance').textContent = Utils.getCredits();
     }
@@ -206,7 +224,7 @@
               <p class="text-muted small mb-3">${r.desc}</p>
               ${isOwned
                 ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Use now</a>`
-                : `<button class="btn-redeem" data-id="${r.id}" data-cost="${r.cost}" ${canBuy ? '' : 'disabled'}>
+                : `<button type="button" class="btn-redeem" data-id="${r.id}" data-cost="${r.cost}" ${canBuy ? '' : 'disabled'}>
                     <i class="bi bi-stars me-1"></i> Redeem for ${r.cost} Pts
                   </button>`}
             </div>
@@ -214,20 +232,28 @@
       }).join('');
 
       document.querySelectorAll('.btn-redeem[data-id]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.dataset.id;
-          const cost = Number(btn.dataset.cost);
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          const id = btn.getAttribute('data-id');
+          const cost = Number(btn.getAttribute('data-cost')) || 0;
           const item = REWARDS.find(x => x.id === id);
-          if (!Utils.spendCredits(cost, 'Redeem: ' + (item?.title || id))) {
-            Utils.showToast('Not enough credits. Complete more interviews!', 'warning');
+          if (!item) return;
+          if (Utils.getRedeemed().includes(id)) {
+            if (item.href) location.href = item.href;
+            return;
+          }
+          if (!Utils.spendCredits(cost, 'Redeem: ' + item.title)) {
+            Utils.showToast('Not enough credits. Complete more interviews or check balance above.', 'warning');
             return;
           }
           Utils.markRedeemed(id);
           Utils.showToast('Unlocked: ' + item.title, 'success');
           refreshBalance();
           renderCatalog();
-          if (item.href && confirm('Unlocked! Open this reward now?')) {
-            location.href = item.href;
+          if (item.href) {
+            setTimeout(function () {
+              if (confirm('Unlocked! Open this reward now?')) location.href = item.href;
+            }, 300);
           }
         });
       });
@@ -264,8 +290,10 @@
       });
     });
 
+    ensureStarterCredits();
     refreshBalance();
     renderCatalog();
+    renderHistory();
   </script>
   <script src="../assets/js/auth-guard.js"></script>
   <script src="../assets/js/app.js"></script>
