@@ -201,78 +201,326 @@
     return found.slice(0, 30);
   }
 
-  function parseResumeRough(text) {
-    var lines = (text || '').split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
-    var name = lines[0] || 'CANDIDATE';
-    var email = ((text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
-    var phone = ((text || '').match(/(\+?\d[\d\s\-()]{8,}\d)/) || [])[0] || '';
-    var bullets = lines.filter(function (l) { return /^[•\-\*]/.test(l) || l.length > 40; });
-    return { name: name, email: email, phone: phone, lines: lines, bullets: bullets, raw: text || '' };
+
+  function parseResumeStructured(text, stored) {
+    var raw = text || '';
+    var lines = raw.split(/\r?\n/).map(function (l) { return l.trim(); });
+    var nonEmpty = lines.filter(Boolean);
+
+    // Prefer structured data from stored resume object when available
+    var name = (stored && stored.name) || nonEmpty[0] || 'Candidate';
+    var email = (stored && stored.email) || ((raw.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '');
+    var phone = (stored && stored.phone) || ((raw.match(/(\+?\d[\d\s\-()]{8,}\d)/) || [])[0] || '');
+    var location = (stored && stored.location) || '';
+    var linkedin = ((raw.match(/(?:linkedin\.com\/in\/[^\s]+)/i) || [])[0] || '');
+    var role = (stored && stored.currentRole) || '';
+
+    // Summary: stored or first paragraph after header
+    var summary = (stored && stored.summary) || '';
+    if (!summary) {
+      var sumIdx = nonEmpty.findIndex(function (l) { return /summary|profile|objective|about/i.test(l) && l.length < 40; });
+      if (sumIdx >= 0) {
+        var parts = [];
+        for (var i = sumIdx + 1; i < nonEmpty.length && parts.length < 4; i++) {
+          if (/^(experience|education|skills|projects|work|certificat)/i.test(nonEmpty[i])) break;
+          if (nonEmpty[i].length > 30) parts.push(nonEmpty[i]);
+        }
+        summary = parts.join(' ');
+      }
+    }
+
+    // Experience from stored object or text sections
+    var experience = [];
+    if (stored && Array.isArray(stored.experience) && stored.experience.length) {
+      experience = stored.experience.map(function (e) {
+        return {
+          role: e.role || e.title || '',
+          company: e.company || '',
+          duration: e.duration || e.dates || '',
+          location: e.location || '',
+          bullets: [].concat(e.responsibilities || e.bullets || e.highlights || []).map(String)
+        };
+      });
+    } else {
+      var expStart = -1;
+      for (var ei = 0; ei < nonEmpty.length; ei++) {
+        if (/^(professional\s+)?experience|work\s+history|employment/i.test(nonEmpty[ei]) && nonEmpty[ei].length < 40) {
+          expStart = ei; break;
+        }
+      }
+      if (expStart >= 0) {
+        var cur = null;
+        for (var j = expStart + 1; j < nonEmpty.length; j++) {
+          var L = nonEmpty[j];
+          if (/^(education|skills|projects|certificat|awards)/i.test(L) && L.length < 40) break;
+          if (/^[•\-\*]/.test(L) || /^[–—]/.test(L)) {
+            if (!cur) { cur = { role: 'Role', company: '', duration: '', bullets: [] }; experience.push(cur); }
+            cur.bullets.push(L.replace(/^[•\-\*–—]\s*/, ''));
+          } else if (L.length < 90 && !/^[•\-\*]/.test(L)) {
+            cur = { role: L, company: '', duration: '', bullets: [] };
+            // Try "Role | Company" or "Role at Company"
+            var m = L.match(/^(.+?)\s*[|@–—-]\s*(.+)$/);
+            if (m) { cur.role = m[1].trim(); cur.company = m[2].trim(); }
+            experience.push(cur);
+          }
+        }
+      }
+      // Fallback: collect any bullet lines as generic experience
+      if (!experience.length) {
+        var bullets = nonEmpty.filter(function (l) { return /^[•\-\*]/.test(l) || (l.length > 50 && /ed\b|ing\b/.test(l)); });
+        if (bullets.length) {
+          experience.push({
+            role: role || 'Professional Experience',
+            company: '',
+            duration: '',
+            bullets: bullets.slice(0, 10).map(function (b) { return b.replace(/^[•\-\*]\s*/, ''); })
+          });
+        }
+      }
+    }
+
+    // Skills
+    var skills = [];
+    if (stored && stored.skills) {
+      skills = [].concat(
+        stored.skills.technical || [],
+        stored.skills.tools || [],
+        stored.skills.frameworks || [],
+        stored.skills.languages || [],
+        stored.skills.soft || []
+      );
+    }
+    if (stored && stored.competencies) skills = skills.concat(stored.competencies);
+    skills = skills.map(String).filter(Boolean);
+    if (!skills.length) {
+      var skIdx = nonEmpty.findIndex(function (l) { return /^(skills|technical skills|core competencies|technologies)/i.test(l) && l.length < 40; });
+      if (skIdx >= 0) {
+        for (var s = skIdx + 1; s < Math.min(skIdx + 6, nonEmpty.length); s++) {
+          if (/^(experience|education|projects)/i.test(nonEmpty[s])) break;
+          nonEmpty[s].split(/[,|·•\/]/).forEach(function (p) {
+            var x = p.trim();
+            if (x && x.length < 40) skills.push(x);
+          });
+        }
+      }
+    }
+    skills = skills.filter(function (v, i, a) { return a.findIndex(function (x) { return x.toLowerCase() === v.toLowerCase(); }) === i; });
+
+    // Education
+    var education = [];
+    if (stored && Array.isArray(stored.education) && stored.education.length) {
+      education = stored.education.map(function (ed) {
+        return {
+          degree: ed.degree || ed.qualification || '',
+          university: ed.university || ed.school || ed.institute || '',
+          year: ed.year || ed.dates || ''
+        };
+      });
+    } else {
+      var edIdx = nonEmpty.findIndex(function (l) { return /^education|academic|qualification/i.test(l) && l.length < 40; });
+      if (edIdx >= 0) {
+        for (var e = edIdx + 1; e < Math.min(edIdx + 8, nonEmpty.length); e++) {
+          if (/^(experience|skills|projects|certificat)/i.test(nonEmpty[e]) && nonEmpty[e].length < 40) break;
+          var edLine = nonEmpty[e];
+          if (edLine.length > 8) {
+            var parts = edLine.split(/\s*[|–—-]\s*/);
+            education.push({
+              degree: parts[0] || edLine,
+              university: parts[1] || '',
+              year: parts[2] || ((edLine.match(/\b(19|20)\d{2}\b/) || [])[0] || '')
+            });
+          }
+        }
+      }
+    }
+
+    // Projects
+    var projects = [];
+    if (stored && Array.isArray(stored.projects) && stored.projects.length) {
+      projects = stored.projects.map(function (pr) {
+        return { name: pr.name || pr.title || 'Project', description: pr.description || pr.summary || '' };
+      });
+    } else {
+      var prIdx = nonEmpty.findIndex(function (l) { return /^projects?/i.test(l) && l.length < 30; });
+      if (prIdx >= 0) {
+        for (var p = prIdx + 1; p < Math.min(prIdx + 10, nonEmpty.length); p++) {
+          if (/^(experience|education|skills|certificat)/i.test(nonEmpty[p]) && nonEmpty[p].length < 40) break;
+          var pl = nonEmpty[p].replace(/^[•\-\*]\s*/, '');
+          if (pl.length > 5) projects.push({ name: pl.split(/[–—-]/)[0].trim().slice(0, 60), description: pl });
+        }
+      }
+    }
+
+    // Certifications / extra content
+    var extras = [];
+    if (stored && stored.certifications) {
+      extras = [].concat(stored.certifications).map(String);
+    }
+    var certIdx = nonEmpty.findIndex(function (l) { return /certificat|achievements?|awards?/i.test(l) && l.length < 40; });
+    if (certIdx >= 0) {
+      for (var c = certIdx + 1; c < Math.min(certIdx + 6, nonEmpty.length); c++) {
+        if (/^(experience|education|skills)/i.test(nonEmpty[c])) break;
+        extras.push(nonEmpty[c].replace(/^[•\-\*]\s*/, ''));
+      }
+    }
+
+    return {
+      name: name, email: email, phone: phone, location: location, linkedin: linkedin,
+      role: role, summary: summary, experience: experience, skills: skills,
+      education: education, projects: projects, extras: extras, raw: raw
+    };
   }
 
-  function parseJobRough(text) {
-    var titleMatch = (text || '').split(/\n/)[0] || 'Target Role';
-    var keywords = extractKeywords(text);
-    return { title: titleMatch.slice(0, 80), keywords: keywords, raw: text || '' };
+  function parseJobRough(text, stored) {
+    var title = (stored && (stored.title || stored.position)) || ((text || '').split(/\n/)[0] || 'Target Role');
+    title = String(title).replace(/^job\s*title\s*[:\-]?\s*/i, '').slice(0, 100);
+    var company = (stored && stored.company) || '';
+    var keywords = extractKeywords(text || '');
+    if (stored) {
+      [].concat(stored.skills || [], stored.requiredSkills || [], stored.preferredSkills || []).forEach(function (s) {
+        var x = String(s).trim();
+        if (x && keywords.indexOf(x.toLowerCase()) === -1) keywords.push(x);
+      });
+    }
+    return { title: title, company: company, keywords: keywords.slice(0, 28), raw: text || '' };
+  }
+
+  function polishBullet(b, missing) {
+    var clean = String(b || '').replace(/^[•\-\*–—]+\s*/, '').trim();
+    if (!clean) return '';
+    var low = clean.toLowerCase();
+    var inject = (missing || []).find(function (k) { return low.indexOf(String(k).toLowerCase()) === -1; });
+    if (inject && clean.length < 150) {
+      clean = clean.replace(/\.$/, '') + '; applied ' + inject;
+    }
+    if (!/^(led|built|designed|developed|created|managed|delivered|analyzed|improved|implemented|coordinated|facilitated|owned|drove|optimized|engineered|architected)/i.test(clean)) {
+      clean = 'Delivered ' + clean.charAt(0).toLowerCase() + clean.slice(1);
+    }
+    if (!/\.$/.test(clean)) clean += '.';
+    return clean;
   }
 
   function buildOptimized(resumePlain, jobPlain) {
-    var r = parseResumeRough(resumePlain);
-    var j = parseJobRough(jobPlain);
+    var storedResume = getJSON(RESUME_KEY);
+    var storedJob = getJSON(JOB_KEY);
+    var r = parseResumeStructured(resumePlain, storedResume);
+    var j = parseJobRough(jobPlain, storedJob);
     var blob = (resumePlain || '').toLowerCase();
-    var matched = j.keywords.filter(function (k) { return blob.indexOf(k.toLowerCase()) !== -1; });
-    var missing = j.keywords.filter(function (k) { return blob.indexOf(k.toLowerCase()) === -1; });
+    var matched = j.keywords.filter(function (k) { return blob.indexOf(String(k).toLowerCase()) !== -1; });
+    var missing = j.keywords.filter(function (k) { return blob.indexOf(String(k).toLowerCase()) === -1; });
 
     var lines = [];
-    lines.push((r.name || 'CANDIDATE').toUpperCase());
-    lines.push(j.title);
-    if (r.email || r.phone) lines.push([r.email, r.phone].filter(Boolean).join(' | '));
+
+    // ===== 1. USER DETAILS =====
+    lines.push(String(r.name || 'CANDIDATE').toUpperCase());
+    var contact = [r.email, r.phone, r.location, r.linkedin].filter(Boolean).join('  |  ');
+    if (contact) lines.push(contact);
+    lines.push(j.title + (j.company ? '  ·  Target: ' + j.company : ''));
     lines.push('');
+
+    // ===== 2. SUMMARY =====
     lines.push('PROFESSIONAL SUMMARY');
-    var sum = 'Results-oriented professional targeting ' + j.title +
-      '. Experienced in delivering measurable outcomes aligned with business goals.';
-    missing.slice(0, 4).forEach(function (k) {
-      if (sum.toLowerCase().indexOf(k) === -1) sum += ' Skilled in ' + k + '.';
+    lines.push('────────────────────────────────');
+    var sum = r.summary || (
+      'Results-driven professional targeting the ' + j.title +
+      ' role. Experienced in delivering measurable outcomes and collaborating across teams.'
+    );
+    // Align summary to JD keywords
+    missing.slice(0, 3).forEach(function (k) {
+      if (sum.toLowerCase().indexOf(String(k).toLowerCase()) === -1) {
+        sum = sum.replace(/\.$/, '') + '. Familiar with ' + k + '.';
+      }
     });
+    if (j.company && sum.indexOf(j.company) === -1) {
+      sum = sum.replace(/\.$/, '') + ' Seeking to contribute at ' + j.company + '.';
+    }
     lines.push(sum);
     lines.push('');
-    lines.push('CORE SKILLS');
-    var skillLine = [].concat(j.keywords.slice(0, 12), matched).filter(function (v, i, a) {
-      return a.indexOf(v) === i;
-    }).join(' · ');
-    lines.push(skillLine || 'See experience below');
-    lines.push('');
-    lines.push('PROFESSIONAL EXPERIENCE');
-    lines.push('');
-    // Prefer original bullets, inject missing keywords
-    var used = 0;
-    (r.bullets || []).slice(0, 12).forEach(function (b) {
-      var clean = b.replace(/^[•\-\*]+\s*/, '').trim();
-      if (!clean) return;
-      var low = clean.toLowerCase();
-      var inject = missing.find(function (k) { return low.indexOf(k.toLowerCase()) === -1; });
-      if (inject && clean.length < 160) {
-        clean = clean.replace(/\.$/, '') + ', utilizing ' + inject + '.';
-      }
-      if (!/^(led|built|designed|developed|created|managed|delivered|analyzed|improved|implemented)/i.test(clean)) {
-        clean = 'Delivered ' + clean.charAt(0).toLowerCase() + clean.slice(1);
-      }
-      lines.push('• ' + clean);
-      used++;
-    });
-    if (used === 0) {
-      missing.slice(0, 5).forEach(function (k) {
-        lines.push('• Delivered outcomes using ' + k + ' aligned with ' + j.title + ' requirements.');
+
+    // ===== 3. EXPERIENCE (if present) =====
+    if (r.experience && r.experience.length) {
+      lines.push('PROFESSIONAL EXPERIENCE');
+      lines.push('────────────────────────────────');
+      r.experience.forEach(function (exp) {
+        lines.push('');
+        var head = (exp.role || 'Role') + (exp.company ? '  |  ' + exp.company : '');
+        lines.push(head);
+        var meta = [exp.duration, exp.location].filter(Boolean).join('  |  ');
+        if (meta) lines.push(meta);
+        var bullets = (exp.bullets || []).slice(0, 6);
+        if (bullets.length) {
+          bullets.forEach(function (b) {
+            var pb = polishBullet(b, missing);
+            if (pb) lines.push('• ' + pb);
+          });
+        } else {
+          lines.push('• Delivered outcomes aligned with ' + j.title + (missing[0] ? ', including ' + missing[0] : '') + '.');
+        }
       });
+      lines.push('');
     }
+
+    // ===== 4. SKILLS =====
+    lines.push('CORE SKILLS');
+    lines.push('────────────────────────────────');
+    var skillSet = [];
+    // JD keywords first for ATS, then resume skills
+    j.keywords.slice(0, 10).forEach(function (k) { skillSet.push(k); });
+    (r.skills || []).forEach(function (s) { skillSet.push(s); });
+    // unique case-insensitive
+    var seen = {};
+    skillSet = skillSet.filter(function (s) {
+      var k = String(s).toLowerCase();
+      if (seen[k] || !s) return false;
+      seen[k] = true;
+      return true;
+    }).slice(0, 22);
+    lines.push(skillSet.join('  ·  ') || 'See experience above');
     lines.push('');
-    lines.push('— Optimized for ATS keywords from: ' + j.title + ' · MockMaster');
+
+    // ===== 5. EDUCATION =====
+    if (r.education && r.education.length) {
+      lines.push('EDUCATION');
+      lines.push('────────────────────────────────');
+      r.education.forEach(function (ed) {
+        lines.push([ed.degree, ed.university, ed.year].filter(Boolean).join('  |  '));
+      });
+      lines.push('');
+    }
+
+    // ===== 6. PROJECTS / EXTRA from previous resume =====
+    if (r.projects && r.projects.length) {
+      lines.push('PROJECTS');
+      lines.push('────────────────────────────────');
+      r.projects.slice(0, 5).forEach(function (pr) {
+        var desc = pr.description || '';
+        missing.slice(0, 1).forEach(function (k) {
+          if (desc && desc.toLowerCase().indexOf(String(k).toLowerCase()) === -1) {
+            desc = desc.replace(/\.$/, '') + ' (using ' + k + ')';
+          }
+        });
+        lines.push('• ' + (pr.name || 'Project') + (desc && desc !== pr.name ? ' — ' + desc : ''));
+      });
+      lines.push('');
+    }
+
+    if (r.extras && r.extras.length) {
+      lines.push('CERTIFICATIONS & ADDITIONAL');
+      lines.push('────────────────────────────────');
+      r.extras.slice(0, 6).forEach(function (x) {
+        lines.push('• ' + x);
+      });
+      lines.push('');
+    }
+
+    lines.push('— Tailored for: ' + j.title + (j.company ? ' @ ' + j.company : '') + '  ·  Generated by MockMaster');
+
     return {
       text: lines.join('\n'),
       matched: matched,
       missing: missing,
       pct: j.keywords.length ? Math.round((matched.length / j.keywords.length) * 100) : 0,
-      name: (r.name || 'Resume').replace(/\s+/g, '_')
+      name: String(r.name || 'Resume').replace(/\s+/g, '_')
     };
   }
 

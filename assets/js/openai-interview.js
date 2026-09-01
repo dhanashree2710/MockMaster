@@ -218,24 +218,18 @@
       '',
       'CRITICAL RULES:',
       '1. Generate questions that are STRICTLY tailored to the TARGET POSITION, JOB DESCRIPTION, and CANDIDATE RESUME.',
-      '2. Do NOT force software-development or coding questions unless the role is clearly technical (developer, engineer, SDE, data scientist, etc.).',
-      '3. Match the actual domain: Data Analyst → SQL/Excel/BI/stats; HR → recruiting/people; Trainer → facilitation; Marketing → campaigns/metrics; Sales → process/pipeline; etc.',
-      '4. Use the candidate\'s real experience, projects, and skills from the resume to personalize questions (e.g. "On your resume you worked on X — tell me about...").',
-      '5. Where the job asks for skills the candidate lacks, include 1–2 gap/learning questions.',
-      '6. Progress clearly: intro → basic → intermediate → advanced → scenario/practical → closing.',
-      '7. Mix question TYPES in the set (do not output only one type):',
-      '   - intro (1)',
-      '   - technical / domain knowledge (several)',
-      '   - behavioral / HR (at least 1–2 if type includes HR)',
-      '   - scenario / situational (at least 1–2)',
-      '   - coding (only if role is technical and interview type includes technical/coding)',
-      '   - gap (skills missing vs JD)',
-      '   - closing (1)',
-      '8. For EVERY question also provide a strong model answer (idealAnswer) — concrete, structured, with examples where relevant.',
-      '9. Return strict JSON only, no markdown fences:',
+      '2. NEVER repeat the same generic questions every time. Each set must feel unique — vary wording, focus, and depth.',
+      '3. For TECHNICAL roles (developer, engineer, SDE, fullstack, backend, frontend, data, QA, devops): include coding, algorithm/logic, and problem-solving questions (e.g. arrays, strings, complexity, SQL logic, system design snippets). Ask candidates to talk through code or logic, not only theory.',
+      '4. For NON-technical roles: do NOT force coding. Match domain (Data Analyst → SQL/Excel/BI; HR → recruiting; Trainer → facilitation; etc.).',
+      '5. Use the candidate\'s real experience, projects, and skills from the resume to personalize (e.g. "On your resume you worked on X — walk me through...").',
+      '6. Where JD skills are missing on the resume, include 1–2 gap/learning questions.',
+      '7. Progress: intro → basic → intermediate → advanced → coding/logic (if technical) → scenario → closing.',
+      '8. Mix TYPES: intro (1), technical (several), coding/logic (2–3 if technical), behavioral/HR (1–2), scenario (1–2), gap (0–1), closing (1).',
+      '9. For EVERY question provide a strong idealAnswer — concrete, structured, with examples.',
+      '10. Return strict JSON only, no markdown fences:',
       '   { "questions": [ { "question": string, "type": "intro|technical|behavioral|scenario|hr|coding|gap|closing", "level": "basic|intermediate|advanced", "idealAnswer": string } ] }',
-      '10. Write questions AND ideal answers in language code: ' + language + ' (en = natural Indian English phrasing, hi = Hindi, etc.).',
-      '11. Difficulty overall should match: ' + difficulty + '. Style of questions: ' + style + '.'
+      '11. Language code: ' + language + '. Difficulty: ' + difficulty + '. Style: ' + style + '.',
+      '12. Session uniqueness token: ' + Date.now() + ' — use this to vary question selection and phrasing so consecutive interviews differ.'
     ].join('\n');
 
     var user = [
@@ -244,6 +238,7 @@
       'Difficulty: ' + difficulty,
       'Interviewer style: ' + style,
       'Number of questions to generate: ' + num,
+      'Uniqueness seed: ' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
       '',
       '=== CANDIDATE RESUME ===',
       resumeSummary(resume),
@@ -251,7 +246,7 @@
       '=== JOB DESCRIPTION ===',
       jobSummary(job),
       '',
-      'Generate exactly ' + num + ' high-quality, varied interview questions now.'
+      'Generate exactly ' + num + ' UNIQUE, high-quality interview questions. For technical roles prioritize coding + logical problem-solving questions with clear expected approaches.'
     ].join('\n');
 
     var data = await chat(

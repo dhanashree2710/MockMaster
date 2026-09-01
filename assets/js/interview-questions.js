@@ -104,15 +104,20 @@
       ],
       coding: [
         'How would you reverse a string in JavaScript? Talk through the code.',
-        'How do you find the largest number in an array?',
-        'How do you remove duplicate values from an array?',
+        'How do you find the largest number in an array without using Math.max?',
+        'How do you remove duplicate values from an array? Compare Set vs filter approach.',
         'How would you check if a string is a palindrome?',
+        'Write logic to flatten a nested array one level deep.',
+        'How would you debounce a search input in JavaScript?',
+        'Explain how you would implement a deep clone of a plain object.',
+        'How would you find the first non-repeating character in a string?',
+        'Describe an algorithm to check if two strings are anagrams.',
+        'How would you implement a simple Promise-based retry helper?',
         'Describe how you would build a counter with increment/decrement in JavaScript or React.',
-        'How would you build a responsive navigation bar?',
-        'How would you create a login form with client-side validation?',
-        'How would you fetch users from an API and display them in a list?',
-        'How would you implement search/filter on a list of items?',
-        'How would you create a modal popup with HTML, CSS, and JavaScript?'
+        'How would you fetch users from an API and display them in a list with loading and error states?',
+        'How would you implement client-side search/filter on a list of items efficiently?',
+        'Walk through code to group an array of objects by a key (e.g. by department).',
+        'How would you detect a cycle in a linked-list style structure in JS?'
       ]
     },
     backend: {
@@ -143,8 +148,21 @@
         'How do you secure secrets and environment configuration?'
       ],
       coding: [
-        'Write logic to validate an email on the server.',
-        'How would you implement a simple in-memory cache with TTL?'
+        'Write logic to reverse a linked list and explain time complexity.',
+        'How would you find the middle element of a linked list in one pass?',
+        'Explain how you would detect a cycle in a linked list (Floyd algorithm).',
+        'How would you implement a stack using two queues (or vice versa)?',
+        'Write logic for binary search and discuss edge cases.',
+        'How would you find the first duplicate in an array efficiently?',
+        'Explain how you would design a rate limiter for an API.',
+        'How would you implement pagination for a large dataset endpoint?',
+        'Walk through validating and hashing a password before storing it.',
+        'How would you design a simple in-memory cache with TTL?',
+        'Write SQL or describe logic to find the second highest salary.',
+        'How would you handle concurrent updates to the same database row?',
+        'Explain an algorithm to merge two sorted arrays into one sorted array.',
+        'How would you implement exponential backoff for failed API retries?',
+        'Describe how you would find all pairs in an array that sum to a target K.'
       ]
     },
 
@@ -285,14 +303,62 @@
     return { exp0, skills: [...new Set(skills)].slice(0, 8) };
   }
 
-  function take(arr, n, start = 0) {
-    if (!arr || !arr.length) return [];
-    const out = [];
-    for (let i = 0; i < n; i++) out.push(arr[(start + i) % arr.length]);
-    return out;
+  // Deterministic-but-unique shuffle per interview session
+  function sessionSeed() {
+    try {
+      let s = sessionStorage.getItem('mm_q_seed');
+      if (!s) {
+        s = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 9);
+        sessionStorage.setItem('mm_q_seed', s);
+      }
+      return s;
+    } catch (_) {
+      return String(Date.now()) + '-' + Math.random().toString(36).slice(2, 9);
+    }
+  }
+
+  function hashStr(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function mulberry32(a) {
+    return function () {
+      let t = (a += 0x6d2b79f5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffle(arr, rnd) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  function take(arr, n) {
+    if (!arr || !arr.length || n <= 0) return [];
+    const seed = hashStr(sessionSeed() + '|' + arr[0] + '|' + arr.length + '|' + n);
+    const rnd = mulberry32(seed);
+    return shuffle(arr, rnd).slice(0, Math.min(n, arr.length));
+  }
+
+  /** Call at start of each new interview so questions change */
+  function resetQuestionSeed() {
+    try { sessionStorage.removeItem('mm_q_seed'); } catch (_) {}
   }
 
   function buildInterviewQuestions({ resume, job, setup }) {
+    // New seed every time this interview is built → different questions each session
+    resetQuestionSeed();
     const num = Math.min(20, Math.max(5, Number(setup?.numQuestions) || 10));
     const type = (setup?.type || 'Technical + HR').toLowerCase();
     const difficulty = (setup?.difficulty || 'Medium').toLowerCase();
@@ -304,7 +370,7 @@
 
     const wantTech = /technical|coding|system|full\s*stack|frontend|backend/i.test(type) || type.includes('technical');
     const wantHr = /hr|behavioral|\+/.test(type) || type.includes('hr');
-    const wantCoding = /coding|technical/i.test(type) || domain === 'frontend' || domain === 'fullstack' || domain === 'backend';
+    const wantCoding = /coding|technical/i.test(type) || ['frontend','fullstack','backend','data','qa','devops','system_design'].includes(domain);
 
     const questions = [];
     let id = 1;
@@ -332,15 +398,15 @@
     if (difficulty === 'easy') {
       basicN = 4; midN = 2; advN = 1; pracN = 1; codeN = 1;
     } else if (difficulty === 'hard') {
-      basicN = 1; midN = 2; advN = 3; pracN = 2; codeN = 2;
+      basicN = 1; midN = 2; advN = 2; pracN = 2; codeN = 3;
     } else {
-      basicN = 3; midN = 3; advN = 2; pracN = 2; codeN = 2;
+      basicN = 2; midN = 2; advN = 2; pracN = 2; codeN = 3;
     }
 
     if (wantTech) {
       take(bank.basic, basicN).forEach(q => push(q, { type: 'technical', level: 'basic', domain }));
-      take(bank.intermediate, midN, 1).forEach(q => push(q, { type: 'technical', level: 'intermediate', domain }));
-      take(bank.advanced, advN, 2).forEach(q => push(q, { type: 'technical', level: 'advanced', domain }));
+      take(bank.intermediate, midN).forEach(q => push(q, { type: 'technical', level: 'intermediate', domain }));
+      take(bank.advanced, advN).forEach(q => push(q, { type: 'technical', level: 'advanced', domain }));
       take(bank.practical || [], pracN).forEach(q => push(q, { type: 'scenario', level: 'advanced', domain }));
       if (wantCoding) {
         take(bank.coding || [], codeN).forEach(q => push(q, { type: 'coding', level: 'intermediate', domain }));
@@ -638,5 +704,6 @@
     return 'A strong answer on "' + topic + '": start with a clear point, support it with one example from your experience, and link it to this job. Stay structured and under about one minute.';
   }
 
-  window.InterviewQuestions = { buildInterviewQuestions, detectDomain, getModelAnswer };
+  window.InterviewQuestions = { buildInterviewQuestions,
+    resetQuestionSeed, detectDomain, getModelAnswer };
 })();
