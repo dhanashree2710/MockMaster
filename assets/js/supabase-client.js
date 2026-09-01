@@ -74,18 +74,22 @@ const DB = {
   },
 
   // ---------- Users (login / register) ----------
-  async register({ fullName, email, password }) {
+  async register({ fullName, email, password, phone }) {
     const sb = getSupabase();
     if (!sb) throw new Error('Supabase not configured');
     const password_hash = await hashPassword(password);
+    const payload = {
+      full_name: fullName,
+      email: email.trim().toLowerCase(),
+      password_hash
+    };
+    if (phone && String(phone).trim()) {
+      payload.phone = String(phone).trim();
+    }
     const { data, error } = await sb
       .from('users')
-      .insert({
-        full_name: fullName,
-        email: email.trim().toLowerCase(),
-        password_hash
-      })
-      .select('id, full_name, email, role, preferred_lang, created_at')
+      .insert(payload)
+      .select('id, full_name, email, phone, role, preferred_lang, created_at')
       .single();
     if (error) throw error;
     // seed progress row

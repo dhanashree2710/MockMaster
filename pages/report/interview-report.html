@@ -511,106 +511,207 @@
           var data = getReportData();
           var doc = new JsPDF({ unit: 'pt', format: 'a4' });
           var pageW = doc.internal.pageSize.getWidth();
+          var pageH = doc.internal.pageSize.getHeight();
           var margin = 48;
-          var y = 56;
+          var headerH = 56;
+          var footerH = 40;
+          var contentTop = headerH + 28;
+          var contentBottom = pageH - footerH - 16;
+          var y = contentTop;
 
-          doc.setFillColor(43, 87, 72);
-          doc.rect(0, 0, pageW, 72, 'F');
-          doc.setTextColor(156, 176, 128);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(18);
-          doc.text('MockMaster', margin, 34);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(244, 246, 243);
-          doc.text('Interview Report', margin, 54);
+          // Brand colors (light theme — print-friendly)
+          var primary = [43, 87, 72];       // #2B5748
+          var accent = [156, 176, 128];     // #9CB080
+          var ink = [39, 51, 56];           // #273338
+          var muted = [92, 107, 100];      // #5c6b64
+          var lightBg = [244, 246, 243];   // #f4f6f3
 
-          y = 100;
-          doc.setTextColor(39, 51, 56);
+          function drawWatermark() {
+            try {
+              if (doc.GState && doc.setGState) {
+                doc.saveGraphicsState();
+                doc.setGState(new doc.GState({ opacity: 0.08 }));
+              }
+            } catch (_) {}
+            doc.setTextColor(180, 195, 170);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(64);
+            var text = 'MockMaster';
+            var tw = doc.getTextWidth(text);
+            doc.text(text, (pageW - tw) / 2 + 20, pageH / 2 + 40, { angle: 32 });
+            try {
+              if (doc.restoreGraphicsState) doc.restoreGraphicsState();
+            } catch (_) {}
+          }
+
+          function drawHeader() {
+            // Header bar
+            doc.setFillColor(primary[0], primary[1], primary[2]);
+            doc.rect(0, 0, pageW, headerH, 'F');
+            // Accent strip
+            doc.setFillColor(accent[0], accent[1], accent[2]);
+            doc.rect(0, headerH - 3, pageW, 3, 'F');
+            // Brand name
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.text('MockMaster', margin, 28);
+            // Subtitle
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(accent[0], accent[1], accent[2]);
+            doc.text('Interview Report', margin, 44);
+            // Date on right
+            doc.setTextColor(244, 246, 243);
+            doc.setFontSize(9);
+            var dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            var dw = doc.getTextWidth(dateStr);
+            doc.text(dateStr, pageW - margin - dw, 36);
+          }
+
+          function drawFooter(pageNum, totalPages) {
+            var fy = pageH - 22;
+            doc.setDrawColor(accent[0], accent[1], accent[2]);
+            doc.setLineWidth(0.6);
+            doc.line(margin, pageH - footerH + 8, pageW - margin, pageH - footerH + 8);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(muted[0], muted[1], muted[2]);
+            doc.text('© 2026 MockMaster  ·  Design by KDRT IT Solutions LLP', margin, fy);
+            var pageLabel = 'Page ' + pageNum + ' of ' + totalPages;
+            var pw = doc.getTextWidth(pageLabel);
+            doc.text(pageLabel, pageW - margin - pw, fy);
+          }
+
+          function ensureSpace(needed) {
+            if (y + needed > contentBottom) {
+              doc.addPage();
+              drawWatermark();
+              drawHeader();
+              y = contentTop;
+            }
+          }
+
+          // First page chrome
+          drawWatermark();
+          drawHeader();
+
+          // —— Summary section ——
+          doc.setTextColor(ink[0], ink[1], ink[2]);
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(14);
+          doc.setFontSize(13);
           doc.text('Summary', margin, y);
-          y += 22;
+          y += 6;
+          doc.setDrawColor(accent[0], accent[1], accent[2]);
+          doc.setLineWidth(1.2);
+          doc.line(margin, y, margin + 48, y);
+          y += 18;
+
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(60, 70, 66);
+          doc.setFontSize(10);
+          doc.setTextColor(muted[0], muted[1], muted[2]);
 
           var summaryLines = [
-            'Role / Session: ' + String(data.meta || ''),
+            'Role / Session: ' + String(data.meta || '—'),
             'Overall Score: ' + data.score + ' / 100',
-            'Readiness: ' + String(data.readiness || ''),
-            'Technical: ' + data.tech + '  |  Communication: ' + data.comm,
-            'Problem Solving: ' + data.ps + '  |  Confidence: ' + data.conf + '  |  Job Fit: ' + data.job
+            'Readiness: ' + String(data.readiness || '—'),
+            'Technical: ' + data.tech + '   |   Communication: ' + data.comm,
+            'Problem Solving: ' + data.ps + '   |   Confidence: ' + data.conf + '   |   Job Fit: ' + data.job
           ];
           summaryLines.forEach(function (line) {
             var wrapped = doc.splitTextToSize(line, pageW - margin * 2);
+            ensureSpace(wrapped.length * 13 + 4);
+            doc.setTextColor(ink[0], ink[1], ink[2]);
             doc.text(wrapped, margin, y);
-            y += wrapped.length * 14 + 4;
+            y += wrapped.length * 13 + 3;
           });
-          y += 10;
+          y += 14;
 
+          // —— Answer Review ——
+          ensureSpace(30);
           doc.setFont('helvetica', 'bold');
-          doc.setTextColor(39, 51, 56);
-          doc.setFontSize(14);
+          doc.setFontSize(13);
+          doc.setTextColor(ink[0], ink[1], ink[2]);
           doc.text('Answer Review', margin, y);
-          y += 20;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(10);
-          doc.setTextColor(60, 70, 66);
+          y += 6;
+          doc.setDrawColor(accent[0], accent[1], accent[2]);
+          doc.setLineWidth(1.2);
+          doc.line(margin, y, margin + 72, y);
+          y += 18;
 
           (data.answers || []).forEach(function (a, i) {
-            if (y > 720) {
-              doc.addPage();
-              y = 56;
-            }
             var q = 'Q' + (i + 1) + '. ' + (a.question || '');
             var qLines = doc.splitTextToSize(q, pageW - margin * 2);
+            ensureSpace(qLines.length * 12 + 60);
+
             doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(primary[0], primary[1], primary[2]);
             doc.text(qLines, margin, y);
-            y += qLines.length * 13 + 4;
+            y += qLines.length * 12 + 4;
+
             doc.setFont('helvetica', 'normal');
-            doc.text('Score: ' + (a.score != null ? a.score : '-') + '/100', margin, y);
-            y += 14;
-            var ans = 'Answer: ' + (a.answer || '');
+            doc.setFontSize(9);
+            doc.setTextColor(muted[0], muted[1], muted[2]);
+            doc.text('Score: ' + (a.score != null ? a.score : '—') + ' / 100', margin, y);
+            y += 13;
+
+            var ans = 'Answer: ' + (a.answer || '—');
             var aLines = doc.splitTextToSize(ans, pageW - margin * 2);
+            ensureSpace(aLines.length * 11 + 8);
+            doc.setTextColor(ink[0], ink[1], ink[2]);
             doc.text(aLines, margin, y);
-            y += aLines.length * 12 + 6;
+            y += aLines.length * 11 + 5;
+
             if (a.evaluation) {
               var eLines = doc.splitTextToSize('Evaluation: ' + a.evaluation, pageW - margin * 2);
+              ensureSpace(eLines.length * 11 + 6);
+              doc.setTextColor(muted[0], muted[1], muted[2]);
               doc.text(eLines, margin, y);
-              y += eLines.length * 12 + 6;
+              y += eLines.length * 11 + 5;
             }
+
             if (a.betterAnswer) {
-              if (y > 700) { doc.addPage(); y = 56; }
+              var idealLabel = 'Ideal Answer (learn from this):';
+              var idealLines = doc.splitTextToSize(String(a.betterAnswer), pageW - margin * 2);
+              ensureSpace(idealLines.length * 11 + 20);
               doc.setFont('helvetica', 'bold');
-              doc.setTextColor(43, 87, 72);
-              var idealHeader = doc.splitTextToSize('Ideal Answer (learn from this):', pageW - margin * 2);
-              doc.text(idealHeader, margin, y);
-              y += idealHeader.length * 12 + 2;
+              doc.setTextColor(primary[0], primary[1], primary[2]);
+              doc.text(idealLabel, margin, y);
+              y += 12;
               doc.setFont('helvetica', 'normal');
-              doc.setTextColor(60, 70, 66);
-              var bLines = doc.splitTextToSize(String(a.betterAnswer), pageW - margin * 2);
-              doc.text(bLines, margin, y);
-              y += bLines.length * 12 + 14;
+              doc.setTextColor(ink[0], ink[1], ink[2]);
+              doc.text(idealLines, margin, y);
+              y += idealLines.length * 11 + 12;
             } else {
               y += 10;
             }
           });
 
-          if (y > 720) {
-            doc.addPage();
-            y = 56;
-          }
-          y += 8;
-          doc.setDrawColor(156, 176, 128);
+          // Final note on last content area
+          ensureSpace(36);
+          y += 6;
+          doc.setDrawColor(accent[0], accent[1], accent[2]);
           doc.setLineWidth(0.5);
           doc.line(margin, y, pageW - margin, y);
-          y += 16;
-          doc.setFontSize(9);
-          doc.setTextColor(97, 135, 100);
+          y += 14;
+          doc.setFontSize(8);
+          doc.setTextColor(muted[0], muted[1], muted[2]);
           doc.text('Generated by MockMaster · ' + new Date().toLocaleString(), margin, y);
-          y += 12;
-          doc.text('© 2026 MockMaster. All Rights Reserved. | Design by KDRT IT Solutions LLP', margin, y);
+
+          // Apply header/footer + watermark to every page
+          var totalPages = doc.internal.getNumberOfPages();
+          for (var p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            // Re-draw watermark/header only if missing on later pages (already drawn on first & when adding)
+            // Footer is always needed
+            drawFooter(p, totalPages);
+            // Ensure watermark + header exist on pages that were added mid-content
+            // (drawHeader/drawWatermark are idempotent enough for re-draw)
+            if (p > 1) {
+              // Check if header already present by not overwriting; we already call them on addPage
+            }
+          }
 
           var stamp = new Date().toISOString().slice(0, 10);
           var filename = 'MockMaster-Interview-Report-' + stamp + '.pdf';

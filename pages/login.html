@@ -1232,6 +1232,15 @@
             </div>
 
             <div class="field">
+              <label for="signupPhone">Phone Number</label>
+              <div class="input-wrap">
+                <i class="bi bi-telephone input-icon"></i>
+                <input type="tel" id="signupPhone" name="phone" placeholder="+91 98765 43210" autocomplete="tel">
+              </div>
+              <span class="error-msg" id="signupPhoneError"></span>
+            </div>
+
+            <div class="field">
               <label for="signupPassword">Password</label>
               <div class="input-wrap">
                 <i class="bi bi-lock input-icon"></i>
@@ -1514,11 +1523,13 @@
         let valid = true;
         const name = document.getElementById('signupName').value.trim();
         const email = document.getElementById('signupEmail').value.trim();
+        const phone = (document.getElementById('signupPhone') || {}).value ? document.getElementById('signupPhone').value.trim() : '';
         const password = document.getElementById('signupPassword').value;
         const confirm = document.getElementById('signupConfirm').value;
 
         clearError('signupNameError');
         clearError('signupEmailError');
+        clearError('signupPhoneError');
         clearError('signupPasswordError');
         clearError('signupConfirmError');
 
@@ -1537,7 +1548,7 @@
         (async () => {
           try {
             if (window.DB && DB.isConfigured()) {
-              await DB.register({ fullName: name, email, password });
+              await DB.register({ fullName: name, email, password, phone });
               btn.classList.remove('loading');
               btn.querySelector('.btn-text').textContent = 'Create Account';
               successOverlay.classList.add('show');
@@ -1547,8 +1558,8 @@
               }, 1800);
               return;
             }
-            localStorage.setItem('ipa_user', JSON.stringify({ name, email }));
-            localStorage.setItem('mm_session', JSON.stringify({ userId: 'demo', email, fullName: name, loggedInAt: Date.now() }));
+            localStorage.setItem('ipa_user', JSON.stringify({ name, email, phone }));
+            localStorage.setItem('mm_session', JSON.stringify({ userId: 'demo', email, fullName: name, phone: phone || null, loggedInAt: Date.now() }));
             // New user welcome credits
             localStorage.setItem('mm_credits', '100');
             try {
@@ -1573,7 +1584,7 @@
         })();
       });
 
-      ['loginEmail','loginPassword','signupName','signupEmail','signupPassword','signupConfirm']
+      ['loginEmail','loginPassword','signupName','signupEmail','signupPhone','signupPassword','signupConfirm']
         .forEach(id => {
           const el = document.getElementById(id);
           if (el) el.addEventListener('input', () => clearError(id + 'Error'));
