@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirm('End the interview early?')) finishInterview();
   });
 
-  document.getElementById('mic-btn')?.addEventListener('click', () => {
+  document.getElementById('mic-btn')?.addEventListener('click', async () => {
     if (!recognition) {
       showToast('Speech recognition not supported in this browser.', 'warning');
       return;
@@ -208,11 +208,26 @@ document.addEventListener('DOMContentLoaded', () => {
       isRecording = false;
       document.getElementById('mic-btn').classList.remove('recording');
     } else {
-      recognition.start();
-      isRecording = true;
-      document.getElementById('mic-btn').classList.add('recording');
-      document.getElementById('ai-status').className = 'ai-status listening';
-      document.getElementById('ai-status-text').textContent = 'Listening...';
+      // In-app permission gate
+      if (window.AppPermissions) {
+        const state = await AppPermissions.getMicPermissionState();
+        if (state !== 'granted') {
+          const result = await AppPermissions.ensureMicrophonePermission({ force: state === 'denied' });
+          if (!result.granted) {
+            showToast('Microphone not available. Type your answer instead.', 'info');
+            return;
+          }
+        }
+      }
+      try {
+        recognition.start();
+        isRecording = true;
+        document.getElementById('mic-btn').classList.add('recording');
+        document.getElementById('ai-status').className = 'ai-status listening';
+        document.getElementById('ai-status-text').textContent = 'Listening...';
+      } catch (e) {
+        showToast('Could not start microphone. Please type your answer.', 'warning');
+      }
     }
   });
 });

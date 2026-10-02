@@ -51,6 +51,26 @@
         </div>
       </div>
 
+      <!-- In-app permissions -->
+      <div class="card-app mb-3">
+        <div class="card-body">
+          <h6 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>Permissions</h6>
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div>
+              <div class="fw-semibold small">Microphone</div>
+              <p class="text-muted small mb-0">Used for voice answers during AI interviews (speech-to-text).</p>
+            </div>
+            <span id="settingsMicBadge" class="badge bg-secondary">Checking…</span>
+          </div>
+          <button type="button" class="btn-outline-app btn-sm" id="settingsRequestMic">
+            <i class="bi bi-mic me-1"></i> Request / manage microphone
+          </button>
+          <p class="text-muted small mt-2 mb-0">
+            If status shows <strong>Blocked</strong>, open your browser site settings (lock icon in the address bar) and allow Microphone for this site.
+          </p>
+        </div>
+      </div>
+
       <!-- AI Provider — keys stay on this device only -->
       <div class="card-app mb-3">
         <div class="card-body">
@@ -131,9 +151,24 @@
   <script src="../assets/js/theme.js"></script>
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/permissions.js"></script>
   <script src="../assets/js/openai-interview.js"></script>
   <script>
     (function () {
+      // Microphone permission status + request
+      if (window.AppPermissions) {
+        AppPermissions.renderMicStatusBadge('#settingsMicBadge');
+        document.getElementById('settingsRequestMic')?.addEventListener('click', async function () {
+          const result = await AppPermissions.ensureMicrophonePermission({ force: true });
+          await AppPermissions.renderMicStatusBadge('#settingsMicBadge');
+          if (result.granted) {
+            Utils.showToast('Microphone allowed.', 'success');
+          } else if (result.skipped) {
+            Utils.showToast('You can type answers during interviews.', 'info');
+          }
+        });
+      }
+
       var K = window.STORAGE_KEYS || {};
       var providerEl = document.getElementById('aiProvider');
       var groqEl = document.getElementById('groqKey');

@@ -109,10 +109,35 @@
               <option value="te">🇮🇳 Telugu</option>
             </select>
           </div>
-          <div class="form-check mb-4">
+          <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" id="instantFeedback">
             <label class="form-check-label" for="instantFeedback">Enable Instant Feedback Mode (show score after each answer)</label>
           </div>
+
+          <!-- In-app microphone permission status -->
+          <div class="card-app mb-4" style="background: var(--surface-hover, rgba(43,87,72,0.06)); border: 1px dashed var(--border);">
+            <div class="card-body py-3 px-3">
+              <div class="d-flex align-items-start gap-3">
+                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:44px;height:44px;background:rgba(43,87,72,0.12);color:var(--primary);">
+                  <i class="bi bi-mic-fill fs-5"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                    <strong class="small">Microphone for voice answers</strong>
+                    <span id="micStatusBadge" class="badge bg-secondary">Checking…</span>
+                  </div>
+                  <p class="small text-muted mb-2 mb-md-1">
+                    Allow mic access so you can speak answers. You can still type if you prefer or if permission is denied.
+                  </p>
+                  <button type="button" class="btn-outline-app btn-sm" id="requestMicBtn">
+                    <i class="bi bi-shield-check me-1"></i> Request permission
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <button class="btn-primary-app w-100 btn-lg" id="startBtn">
             Start Interview <i class="bi bi-play-fill ms-1"></i>
           </button>
@@ -139,6 +164,7 @@
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/app.js"></script>
+  <script src="../../assets/js/permissions.js"></script>
   <script src="../../assets/js/openai-interview.js"></script>
   <script>
     const job = Utils.getStored(STORAGE_KEYS.job, null);
@@ -148,6 +174,26 @@
     posEl.value = savedTitle || posEl.value || '';
     if (!posEl.value) posEl.placeholder = 'e.g. Data Analyst, Backend Engineer, HR Manager';
     posEl.removeAttribute('readonly');
+
+    // ---- In-app mic permission UI ----
+    async function refreshMicBadge() {
+      if (window.AppPermissions) {
+        await AppPermissions.renderMicStatusBadge('#micStatusBadge');
+      }
+    }
+    refreshMicBadge();
+
+    document.getElementById('requestMicBtn')?.addEventListener('click', async () => {
+      if (!window.AppPermissions) return;
+      const result = await AppPermissions.ensureMicrophonePermission({ force: true });
+      await refreshMicBadge();
+      if (result.granted) {
+        Utils.showToast('Microphone allowed. Voice answers are ready.', 'success');
+      } else if (result.skipped) {
+        Utils.showToast('You can type answers during the interview.', 'info');
+      }
+    });
+
     document.getElementById('startBtn').addEventListener('click', async () => {
       const setup = {
         position: document.getElementById('position').value,
@@ -158,19 +204,37 @@
         language: document.getElementById('lang').value,
         instantFeedback: document.getElementById('instantFeedback').checked
       };
-      // Request microphone access before interview
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
-          setup.micGranted = true;
+
+      // In-app permission flow (explains why, then triggers browser prompt)
+      let micGranted = false;
+      if (window.AppPermissions) {
+        const state = await AppPermissions.getMicPermissionState();
+        if (state === 'granted') {
+          micGranted = true;
+        } else {
+          const result = await AppPermissions.ensureMicrophonePermission({ required: false });
+          micGranted = !!result.granted;
+          // User cancelled dialog entirely only if they close without skip — treat skip as continue
+          if (!result.granted && !result.skipped && result.error === undefined && state === 'prompt') {
+            // Dialog was closed without action — still allow continue with typing
+          }
         }
-      } catch (err) {
-        console.warn('Mic permission:', err);
-        setup.micGranted = false;
-        const ok = confirm('Microphone access was denied or unavailable. You can still type answers. Continue?');
-        if (!ok) return;
+      } else {
+        // Fallback if permissions.js failed to load
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop());
+            micGranted = true;
+          }
+        } catch (err) {
+          console.warn('Mic permission:', err);
+          const ok = confirm('Microphone access was denied or unavailable. You can still type answers. Continue?');
+          if (!ok) return;
+        }
       }
+
+      setup.micGranted = micGranted;
       sessionStorage.setItem('ipa_interview_setup', JSON.stringify(setup));
       location.href = 'ai-interview.html';
     });

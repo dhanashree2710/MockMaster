@@ -73,7 +73,7 @@
       <div class="interview-input-area">
         <textarea class="form-control form-control-app mb-2" id="answerInput" placeholder="Type your answer here..." rows="3"></textarea>
         <div class="d-flex justify-content-between align-items-center">
-          <button class="btn-ghost" id="micBtn" title="Voice input (demo)"><i class="bi bi-mic fs-5"></i></button>
+          <button class="btn-ghost" id="micBtn" title="Voice input — requires microphone permission"><i class="bi bi-mic fs-5"></i></button>
           <button class="btn-primary-app" id="submitBtn" disabled>
             Submit Answer <i class="bi bi-send ms-1"></i>
           </button>
@@ -91,6 +91,7 @@
   <script src="../../assets/js/firebase.js"></script>
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/utils.js"></script>
+  <script src="../../assets/js/permissions.js"></script>
   <script>
     const setup = JSON.parse(sessionStorage.getItem('ipa_interview_setup') || '{}');
     const resumeData = (window.Utils && Utils.getStored(STORAGE_KEYS.resume)) || {};
@@ -464,11 +465,30 @@
       return t.replace(/\s{2,}/g, ' ').trim();
     }
 
-    function startMic() {
+    async function startMic() {
       if (!SpeechRecognitionAPI) {
-        alert('Speech recognition is not supported in this browser. Please use Chrome/Edge, or type your answer.');
+        if (window.Utils && Utils.showToast) {
+          Utils.showToast('Speech recognition is not supported here. Please type your answer.', 'warning');
+        } else {
+          alert('Speech recognition is not supported in this browser. Please use Chrome/Edge, or type your answer.');
+        }
         return;
       }
+
+      // Ensure in-app mic permission before starting recognition
+      if (window.AppPermissions) {
+        const state = await AppPermissions.getMicPermissionState();
+        if (state !== 'granted') {
+          const result = await AppPermissions.ensureMicrophonePermission({ force: state === 'denied' });
+          if (!result.granted) {
+            if (window.Utils && Utils.showToast) {
+              Utils.showToast('Microphone not available. Type your answer instead.', 'info');
+            }
+            return;
+          }
+        }
+      }
+
       try {
         // Stop any previous instance cleanly
         if (recognition) {
@@ -530,7 +550,13 @@
           isRecording = false;
           setMicUI(false);
           if (err.error === 'not-allowed') {
-            alert('Microphone permission denied. Allow mic access in browser settings.');
+            if (window.AppPermissions) {
+              AppPermissions.showPermissionDialog({ required: false }).then(() => {});
+            } else if (window.Utils && Utils.showToast) {
+              Utils.showToast('Microphone blocked. Allow mic in browser site settings.', 'warning');
+            } else {
+              alert('Microphone permission denied. Allow mic access in browser settings.');
+            }
           }
         };
 
@@ -581,9 +607,9 @@
       if (box && box.value) box.value = dedupeSpeechText(box.value);
     }
 
-    document.getElementById('micBtn')?.addEventListener('click', () => {
+    document.getElementById('micBtn')?.addEventListener('click', async () => {
       if (isRecording) stopMic();
-      else startMic();
+      else await startMic();
     });
 
     // Speak each question when asked
