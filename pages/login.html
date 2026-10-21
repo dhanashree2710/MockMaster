@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../assets/js/safe-html.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#2B5748">
   <title>MOCKMASTER — Login & Sign Up</title>
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="../vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/vendor/inter/inter.css" rel="stylesheet">
   <link href="../assets/css/loader.css" rel="stylesheet">
 
   <style>
@@ -1191,9 +1192,10 @@
                 <input type="checkbox" id="rememberMe">
                 <span>Remember me</span>
               </label>
-              <a href="#" class="forgot">Forgot Password?</a>
+              <a href="forgot-password.html" class="forgot" id="forgotLink">Change password?</a>
             </div>
 
+            <p class="auth-notice" id="loginNotice" role="status" style="display:none;font-size:0.85rem;color:#2B5748;background:#eaf3ee;border-radius:10px;padding:10px 12px;margin:0 0 12px;"></p>
             <button type="submit" class="btn-cta" id="loginBtn">
               <span class="btn-text">Sign In</span>
               <i class="bi bi-arrow-right btn-arrow"></i>
@@ -1267,6 +1269,15 @@
               </div>
               <span class="error-msg" id="signupConfirmError"></span>
             </div>
+
+            <div class="field" style="margin-top:-4px;">
+              <label class="remember" style="align-items:flex-start;gap:8px;">
+                <input type="checkbox" id="signupConsent" required style="margin-top:3px;">
+                <span style="font-size:0.8rem;line-height:1.4;">I agree to the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and understand my resume and interview answers are processed by AI services to give feedback.</span>
+              </label>
+              <span class="error-msg" id="signupConsentError"></span>
+            </div>
+            <p class="auth-notice" id="signupNotice" role="status" style="display:none;font-size:0.85rem;color:#2B5748;background:#eaf3ee;border-radius:10px;padding:10px 12px;margin:0 0 12px;"></p>
 
             <button type="submit" class="btn-cta" id="signupBtn">
               <span class="btn-text">Create Account</span>
@@ -1343,9 +1354,9 @@
     </div>
   </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../vendor/supabase/supabase.js"></script>
   <script src="../assets/js/supabase-client.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
   <script>
     (function () {
       'use strict';
@@ -1479,7 +1490,17 @@
         const el = document.getElementById(id);
         if (el) { el.textContent = ''; el.classList.remove('show'); }
       }
-      function isValidEmail(email) {
+      
+      // Prefill email from ?email= (after password reset)
+      try {
+        var _qe = new URLSearchParams(location.search).get('email');
+        if (_qe) {
+          var _le = document.getElementById('loginEmail');
+          if (_le) _le.value = _qe;
+        }
+      } catch (_) {}
+
+function isValidEmail(email) {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       }
 
@@ -1501,19 +1522,16 @@
         btn.querySelector('.btn-text').textContent = 'Signing in…';
         (async () => {
           try {
-            if (window.DB && DB.isConfigured()) {
-              await DB.login({ email, password });
-              btn.classList.remove('loading');
-              btn.querySelector('.btn-text').textContent = 'Sign In';
-              window.location.href = 'dashboard.html';
-              return;
+            if (!window.DB) throw new Error('Service temporarily unavailable. Please try again later.');
+            if (DB.ready) await DB.ready(8000);
+            if (!DB.isConfigured()) {
+              throw new Error('Could not load auth library. Check your connection and refresh.');
             }
-            // Fallback demo (no Supabase keys yet)
-            localStorage.setItem('ipa_user', JSON.stringify({ name: email.split('@')[0], email }));
-            localStorage.setItem('mm_session', JSON.stringify({ userId: 'demo', email, fullName: email.split('@')[0], loggedInAt: Date.now() }));
+            await DB.login({ email, password });
             btn.classList.remove('loading');
             btn.querySelector('.btn-text').textContent = 'Sign In';
             window.location.href = 'dashboard.html';
+            return;
           } catch (err) {
             btn.classList.remove('loading');
             btn.querySelector('.btn-text').textContent = 'Sign In';
@@ -1544,6 +1562,8 @@
         else if (password.length < 8) { showError('signupPasswordError', 'Password must be at least 8 characters'); valid = false; }
         if (!confirm) { showError('signupConfirmError', 'Please confirm your password'); valid = false; }
         else if (password !== confirm) { showError('signupConfirmError', 'Passwords do not match'); valid = false; }
+        clearError('signupConsentError');
+        if (!document.getElementById('signupConsent').checked) { showError('signupConsentError', 'Please accept the Privacy Policy to continue'); valid = false; }
         if (!valid) return;
 
         const btn = document.getElementById('signupBtn');
@@ -1551,10 +1571,21 @@
         btn.querySelector('.btn-text').textContent = 'Creating…';
         (async () => {
           try {
-            if (window.DB && DB.isConfigured()) {
-              await DB.register({ fullName: name, email, password, phone });
+            if (!window.DB) throw new Error('Service temporarily unavailable. Please try again later.');
+            if (DB.ready) await DB.ready(8000);
+            if (!DB.isConfigured()) {
+              throw new Error('Could not load auth library. Check your connection and refresh.');
+            }
+            {
+              const reg = await DB.register({ fullName: name, email, password, phone });
               btn.classList.remove('loading');
               btn.querySelector('.btn-text').textContent = 'Create Account';
+              if (reg && reg.needsConfirmation) {
+                const n = document.getElementById('signupNotice');
+                n.textContent = 'Account created! We sent a confirmation link to ' + reg.email + '. Open it, then come back and sign in.';
+                n.style.display = 'block';
+                return;
+              }
               successOverlay.classList.add('show');
               setTimeout(() => {
                 successOverlay.classList.remove('show');
@@ -1562,30 +1593,25 @@
               }, 1800);
               return;
             }
-            localStorage.setItem('ipa_user', JSON.stringify({ name, email, phone }));
-            localStorage.setItem('mm_session', JSON.stringify({ userId: 'demo', email, fullName: name, phone: phone || null, loggedInAt: Date.now() }));
-            // New user welcome credits
-            localStorage.setItem('mm_credits', '100');
-            try {
-              const hist = JSON.parse(localStorage.getItem('mm_credits_history') || '[]');
-              hist.unshift({ amount: 100, reason: 'Welcome bonus — new user', at: new Date().toISOString(), balance: 100 });
-              localStorage.setItem('mm_credits_history', JSON.stringify(hist));
-            } catch (_) {}
-            btn.classList.remove('loading');
-            btn.querySelector('.btn-text').textContent = 'Create Account';
-            successOverlay.classList.add('show');
-            setTimeout(() => {
-              successOverlay.classList.remove('show');
-              window.location.href = 'dashboard.html';
-            }, 1800);
           } catch (err) {
             btn.classList.remove('loading');
             btn.querySelector('.btn-text').textContent = 'Create Account';
             const msg = (err && err.message) || 'Sign up failed';
-            if (/email|unique|duplicate/i.test(msg)) showError('signupEmailError', 'Email already registered');
+            if (/already exists|already registered|duplicate/i.test(msg)) showError('signupEmailError', 'Email already registered — please sign in');
             else showError('signupConfirmError', msg);
           }
         })();
+      });
+
+      const forgot = document.getElementById('forgotLink');
+      if (forgot) forgot.addEventListener('click', function (e) {
+        // Navigate to forgot-password page; pass email if already typed
+        const email = (document.getElementById('loginEmail') || {}).value || '';
+        if (email && email.trim()) {
+          e.preventDefault();
+          location.href = 'forgot-password.html?email=' + encodeURIComponent(email.trim());
+        }
+        // else allow default href navigation
       });
 
       ['loginEmail','loginPassword','signupName','signupEmail','signupPhone','signupPassword','signupConfirm']

@@ -16,7 +16,8 @@ const Utils = {
     const el = document.createElement('div');
     el.className = `alert alert-${type === 'danger' ? 'danger' : type} d-flex align-items-center gap-2 shadow`;
     el.style.cssText = 'min-width:280px;border-radius:12px;animation:slideIn 0.3s ease';
-    el.innerHTML = `<i class="bi bi-${icons[type] || icons.info}"></i><span>${message}</span>`;
+    el.innerHTML = `<i class="bi bi-${icons[type] || icons.info}"></i><span></span>`;
+    el.querySelector('span').textContent = message == null ? '' : String(message);
     container.appendChild(el);
     setTimeout(() => {
       el.style.opacity = '0';
@@ -40,14 +41,44 @@ const Utils = {
     localStorage.setItem(key, JSON.stringify(value));
   },
 
+  escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  },
+
   getUser() {
-    return this.getStored(STORAGE_KEYS.user, { name: 'John Doe', email: 'john.doe@email.com' });
+    const s = this.getStored('mm_session', null);
+    if (s && (s.fullName || s.email)) {
+      return { name: s.fullName || s.email.split('@')[0], email: s.email || '', id: s.userId };
+    }
+    const u = this.getStored(STORAGE_KEYS.user, null);
+    if (u && (u.name || u.email)) {
+      return { name: u.name || '', email: u.email || '', id: u.id };
+    }
+    return { name: '', email: '', id: null };
   },
 
   isLoggedIn() {
     try {
-      const u = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || 'null');
-      return !!(u && u.loggedIn);
+      if (window.AuthGuard && typeof window.AuthGuard.isLoggedIn === 'function') {
+        return window.AuthGuard.isLoggedIn();
+      }
+      const s = localStorage.getItem('mm_session');
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed && (parsed.userId || parsed.email)) return true;
+      }
+      const u = localStorage.getItem('ipa_user');
+      if (u) {
+        const parsed = JSON.parse(u);
+        if (parsed && (parsed.email || parsed.name || parsed.id || parsed.loggedIn)) return true;
+      }
+      return false;
     } catch { return false; }
   },
 

@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../assets/js/safe-html.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2B5748">
   <title>Rewards Store — MockMaster</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="../vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="../assets/css/variables.css" rel="stylesheet">
   <link href="../assets/css/style.css" rel="stylesheet">
   <link href="../assets/css/responsive.css" rel="stylesheet">
@@ -150,7 +151,9 @@
     <span>Design by <span class="designer-name">KDRT IT Solutions LLP</span></span>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script src="../vendor/supabase/supabase.js"></script>
+  <script src="../assets/js/supabase-client.js"></script>
   <script src="../assets/js/config.js"></script>
   <script src="../assets/js/theme.js"></script>
   <script src="../assets/js/utils.js"></script>
@@ -160,39 +163,45 @@
         id: 'exec360',
         tag: 'Most Popular', tagClass: 'tag-popular',
         cost: 50,
+        prizeInr: 15,
         title: 'Executive 360° AI Interview Breakdown',
-        desc: 'Comprehensive analysis of your interview transcript with line-by-line sentiment, executive presence scoring, and STAR metrics.',
+        desc: 'Comprehensive analysis of your interview transcript with line-by-line sentiment, executive presence scoring, and STAR metrics. Prize: ₹15 wallet credit.',
         href: 'rewards/exec-360.html'
       },
       {
         id: 'voiceReplay',
         tag: 'Audio AI', tagClass: 'tag-audio',
         cost: 50,
+        prizeInr: 12,
         title: 'Live AI Voice Tone & Pace Replay',
-        desc: 'Speech pace audit (WPM), filler-word detection, pitch stability analysis, and conversational confidence heatmap.',
+        desc: 'Speech pace audit (WPM), filler-word detection, pitch stability analysis, and conversational confidence heatmap. Prize: ₹12 wallet credit.',
         href: 'rewards/voice-analysis.html'
       },
       {
         id: 'atsOptimizer',
         tag: 'Free · ATS', tagClass: 'tag-ats',
         cost: 0,
+        prizeInr: 9,
         title: 'AI Resume & ATS Alignment Optimizer',
-        desc: 'Upload resume + job description → generate ATS-aligned resume → download .txt / .doc. Free core tool.',
+        desc: 'Upload resume + job description → generate ATS-aligned resume → download .txt / .doc. Free core tool. Prize: ₹9 wallet credit on first use.',
         href: 'resume/generate-from-jd.html'
       },
       {
         id: 'tier1Pack',
         tag: 'Premium Pack', tagClass: 'tag-pack',
         cost: 50,
+        prizeInr: 20,
         title: 'Tier-1 Tech Insider Question Pack',
-        desc: 'Curated top 30 real-world behavioral and system architecture questions recently asked at Google, Stripe, Meta, and Microsoft.',
+        desc: 'Curated top 30 real-world behavioral and system architecture questions recently asked at Google, Stripe, Meta, and Microsoft. Prize: ₹20 wallet credit.',
         href: 'rewards/tier1-pack.html'
       }
     ];
 
     function ensureStarterCredits() {
-      // If wallet is empty (first visit / cleared storage), seed welcome credits
-      if (Utils.getCredits() <= 0) {
+      // Seed ONLY if the wallet was never initialised (no balance key AND no history).
+      // Previously this re-granted 200 credits every time the balance reached 0.
+      var neverInit = localStorage.getItem('mm_credits') === null && !Utils.getCreditsHistory().length;
+      if (neverInit) {
         Utils.setCredits(200);
         const hist = Utils.getCreditsHistory();
         if (!hist.length) {
@@ -218,19 +227,21 @@
       document.getElementById('rewardsGrid').innerHTML = REWARDS.map(r => {
         const isOwned = owned.includes(r.id);
         const canBuy = bal >= r.cost && !isOwned;
+        const prize = Math.max(9, Number(r.prizeInr) || 9);
         return `
           <div class="col-md-6">
             <div class="reward-card ${isOwned ? 'is-owned' : ''}">
               <div class="d-flex justify-content-between align-items-start">
                 <span class="tag ${r.tagClass}">${r.tag}</span>
-                <span class="reward-cost"><i class="bi bi-coin me-1"></i>${r.cost}</span>
+                <span class="reward-cost"><i class="bi bi-coin me-1"></i>${r.cost <= 0 ? 'Free' : r.cost + ' Pts'}</span>
               </div>
               <h5 class="fw-bold mb-2">${r.title}</h5>
-              <p class="text-muted small mb-3">${r.desc}</p>
+              <p class="text-muted small mb-2">${r.desc}</p>
+              <p class="small mb-3" style="color:var(--primary);font-weight:600;"><i class="bi bi-gift me-1"></i>Prize: ₹${prize}</p>
               ${isOwned
                 ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Use now</a>`
                 : `<button type="button" class="btn-redeem" data-id="${r.id}" data-cost="${r.cost}" ${canBuy ? '' : 'disabled'}>
-                    <i class="bi bi-stars me-1"></i> ${r.cost <= 0 ? "Open free" : ("Redeem for " + r.cost + " Pts")}
+                    <i class="bi bi-stars me-1"></i> ${r.cost <= 0 ? "Open free · Claim ₹" + prize : ("Redeem for " + r.cost + " Pts · Get ₹" + prize)}
                   </button>`}
             </div>
           </div>`;
@@ -252,12 +263,25 @@
             return;
           }
           Utils.markRedeemed(id);
-          Utils.showToast('Unlocked: ' + item.title, 'success');
+
+          // Grant prize (₹9+) as bonus credits — 1 credit ≈ ₹1 for wallet display
+          const prize = Math.max(9, Number(item.prizeInr) || 9);
+          if (Utils.addCredits) {
+            Utils.addCredits(prize, 'Reward prize ₹' + prize + ' — ' + item.title);
+          }
+          // Track claimed prizes for UI
+          try {
+            const prizes = JSON.parse(localStorage.getItem('mm_prizes_claimed') || '[]');
+            prizes.unshift({ id: item.id, title: item.title, inr: prize, at: new Date().toISOString() });
+            localStorage.setItem('mm_prizes_claimed', JSON.stringify(prizes.slice(0, 50)));
+          } catch (_) {}
+
+          Utils.showToast('Unlocked: ' + item.title + ' · Prize ₹' + prize + ' added!', 'success', 3200);
           refreshBalance();
           renderCatalog();
           if (item.href) {
             setTimeout(function () {
-              if (confirm('Unlocked! Open this reward now?')) location.href = item.href;
+              if (confirm('Unlocked! Prize ₹' + prize + ' credited. Open this reward now?')) location.href = item.href;
             }, 300);
           }
         });

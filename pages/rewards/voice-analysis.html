@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/safe-html.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Tone & Pace — MockMaster</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/loader.css" rel="stylesheet">
@@ -24,19 +25,37 @@
     <div class="page-header"><h1>Live AI Voice Tone & Pace Replay</h1><p>Estimated pace, filler words, and confidence from your last interview answers (text-based analysis of spoken/typed responses).</p></div>
     <div id="out"></div>
   </div></main>
+  <script src="../../vendor/supabase/supabase.js"></script>
+  <script src="../../assets/js/supabase-client.js"></script>
   <script src="../../assets/js/config.js"></script>
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
     const out = document.getElementById('out');
-    try { if (!Utils.getRedeemed().includes('voiceReplay')) Utils.markRedeemed('voiceReplay'); } catch(_) {}
-    if (false && !Utils.getRedeemed().includes('voiceReplay')) {
-      out.innerHTML = '<div class="card-app"><div class="card-body"><p>Redeem <strong>Live AI Voice Tone & Pace Replay</strong> (200 credits) to unlock.</p><a href="../rewards.html" class="btn-primary-app">Rewards</a></div></div>';
+    if (!Utils.getRedeemed().includes('voiceReplay')) {
+      out.innerHTML = '<div class="card-app"><div class="card-body"><p>Redeem <strong>Live AI Voice Tone & Pace Replay</strong> (50 credits) to unlock — includes ₹12 prize.</p><a href="../rewards.html" class="btn-primary-app">Rewards</a></div></div>';
     } else {
-      const report = JSON.parse(sessionStorage.getItem('ipa_last_report')||'null') || (JSON.parse(localStorage.getItem('ipa_reports_archive')||'[]')[0]);
+      function findBestReport() {
+        try {
+          const last = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null');
+          if (last && (last.answers || []).length) return last;
+        } catch (_) {}
+        try {
+          const arch = JSON.parse(localStorage.getItem('ipa_reports_archive') || '[]');
+          const hit = arch.find(r => r && (r.answers || []).length);
+          if (hit) return hit;
+        } catch (_) {}
+        try {
+          const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+          const s = sessions.find(x => x && (x.answers || []).length);
+          if (s) return { answers: s.answers, duration: s.duration, overallScore: s.score, setup: s.setup || { position: s.position } };
+        } catch (_) {}
+        return null;
+      }
+      const report = findBestReport();
       const answers = (report && report.answers) || [];
       if (!answers.length) {
-        out.innerHTML = '<div class="card-app"><div class="card-body">Complete an interview first (use the mic for best signal).</div></div>';
+        out.innerHTML = '<div class="card-app"><div class="card-body">Complete an interview first (use the mic for best signal), then return here.</div></div>';
       } else {
         const text = answers.map(a => a.answer || '').join(' ');
         const words = text.trim().split(/\s+/).filter(Boolean);

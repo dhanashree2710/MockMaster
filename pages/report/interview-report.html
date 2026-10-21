@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/safe-html.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2B5748">
   <title>Interview Report — MockMaster</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
   <link href="../../assets/css/download-btn.css" rel="stylesheet">
   <link href="../../assets/css/loader.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="../../vendor/jspdf/jspdf.umd.min.js"></script>
   <link rel="icon" type="image/png" sizes="32x32" href="../../assets/images/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../../assets/images/favicon-16x16.png">
   <link rel="shortcut icon" href="../../assets/images/favicon.ico">
@@ -148,6 +149,25 @@
 
       <div class="card-app mb-4">
         <div class="card-body">
+          <h6 class="fw-bold mb-1"><i class="bi bi-flag me-1"></i> Report a problem with AI content</h6>
+          <p class="text-muted small mb-3">AI questions and feedback can be wrong or inappropriate. Tell us and we will review it.</p>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select id="aiReportReason" class="form-select form-control-app" style="max-width:260px">
+              <option value="Inaccurate or misleading">Inaccurate or misleading</option>
+              <option value="Offensive or inappropriate">Offensive or inappropriate</option>
+              <option value="Biased or discriminatory">Biased or discriminatory</option>
+              <option value="Irrelevant to my resume/job">Irrelevant to my resume/job</option>
+              <option value="Other">Other</option>
+            </select>
+            <button type="button" class="btn-outline-app" id="aiReportBtn">Send report</button>
+          </div>
+          <input type="text" id="aiReportDetails" maxlength="500" class="form-control form-control-app mt-2" placeholder="Optional: what was wrong?">
+          <div class="small mt-2" id="aiReportStatus" role="status"></div>
+        </div>
+      </div>
+
+      <div class="card-app mb-4">
+        <div class="card-body">
           <h6 class="fw-bold mb-3">Recommended Practice</h6>
           <div class="d-flex flex-wrap gap-2" id="practiceList">
             <a href="../preparation/preparation-plan.html" class="badge-app badge-primary text-decoration-none">Role fundamentals · 5 Qs</a>
@@ -169,9 +189,9 @@
   </footer>
 
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../../vendor/supabase/supabase.js"></script>
   <script src="../../assets/js/supabase-client.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../vendor/bootstrap/bootstrap.bundle.min.js"></script>
   <script src="../../assets/js/config.js"></script>
   <script src="../../assets/js/interview-questions.js"></script>
   <script src="../../assets/js/firebase.js"></script>
@@ -180,18 +200,68 @@
   <script src="../../assets/js/app.js"></script>
   <script src="../../assets/js/confetti.js"></script>
   <script>
-    const report = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null');
+    document.getElementById('aiReportBtn').addEventListener('click', async function () {
+      var st = document.getElementById('aiReportStatus'), btn = this;
+      btn.disabled = true; st.textContent = 'Sending…';
+      try {
+        var r = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null') || {};
+        await DB.reportContent({
+          type: 'ai_report',
+          ref: (r.setup && r.setup.position) || 'interview report',
+          reason: document.getElementById('aiReportReason').value,
+          details: document.getElementById('aiReportDetails').value
+        });
+        st.textContent = 'Thanks — your report was sent.';
+        document.getElementById('aiReportDetails').value = '';
+      } catch (e) {
+        st.textContent = (e && e.message) || 'Could not send report. Please try again.';
+        btn.disabled = false;
+      }
+    });
+  </script>
+  <script>
+    let report = null;
+    try { report = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null'); } catch (_) {}
+    // Fallback: archive or history sessions with answers
+    if (!report || !(report.answers || []).length) {
+      try {
+        const arch = JSON.parse(localStorage.getItem('ipa_reports_archive') || '[]');
+        if (arch[0] && (arch[0].answers || []).length) report = arch[0];
+      } catch (_) {}
+    }
+    if (!report || (report.overallScore == null && !(report.answers || []).length)) {
+      try {
+        const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+        const s = sessions.find(x => x && ((x.answers || []).length || Number(x.score) > 0));
+        if (s) {
+          report = {
+            overallScore: Number(s.score) || 0,
+            duration: s.duration || 0,
+            completedAt: s.date,
+            setup: s.setup || { position: s.position, difficulty: s.difficulty, style: s.style },
+            answers: s.answers || []
+          };
+        }
+      } catch (_) {}
+    }
     if (report) {
-      const score = report.overallScore || 84;
+      // Prefer computed average from answers when overall is missing/zero but answers have scores
+      let score = Number(report.overallScore);
+      const ans = report.answers || [];
+      if ((!score || score === 0) && ans.length) {
+        const sum = ans.reduce((a, b) => a + (Number(b.score) || 0), 0);
+        if (sum > 0) score = Math.round(sum / ans.length);
+      }
+      if (score == null || isNaN(score)) score = 0;
       document.getElementById('overallScore').textContent = score;
       document.getElementById('overallCircle').style.setProperty('--score', score);
       document.getElementById('readiness').textContent = Utils.readinessLabel(score);
       document.getElementById('reportMeta').textContent = `${report.setup?.position || 'Interview'} · ${report.setup?.difficulty || 'Medium'} · ${Math.floor((report.duration||0)/60)}m ${(report.duration||0)%60}s`;
-      document.getElementById('techScore').textContent = Math.min(100, score + 2) + '%';
-      document.getElementById('commScore').textContent = Math.min(100, score - 3) + '%';
-      document.getElementById('psScore').textContent = Math.min(100, score + 4) + '%';
-      document.getElementById('confScore').textContent = Math.min(100, score - 6) + '%';
-      document.getElementById('jobScore').textContent = Math.min(100, score + 7) + '%';
+      document.getElementById('techScore').textContent = Math.max(0, Math.min(100, score + 2)) + '%';
+      document.getElementById('commScore').textContent = Math.max(0, Math.min(100, score - 3)) + '%';
+      document.getElementById('psScore').textContent = Math.max(0, Math.min(100, score + 4)) + '%';
+      document.getElementById('confScore').textContent = Math.max(0, Math.min(100, score - 6)) + '%';
+      document.getElementById('jobScore').textContent = Math.max(0, Math.min(100, score + 7)) + '%';
 
       // Celebrate successful interview completion
       try {
@@ -339,13 +409,13 @@
         const sl = document.getElementById('strengthsList');
         const il = document.getElementById('improveList');
         const pl = document.getElementById('practiceList');
-        if (sl) sl.innerHTML = strengths.slice(0, 5).map(function (x) { return '<li>' + x + '</li>'; }).join('');
-        if (il) il.innerHTML = improve.slice(0, 5).map(function (x) { return '<li>' + x + '</li>'; }).join('');
+        if (sl) sl.innerHTML = strengths.slice(0, 5).map(function (x) { return '<li>' + (window.Utils && Utils.escapeHtml ? Utils.escapeHtml(x) : x) + '</li>'; }).join('');
+        if (il) il.innerHTML = improve.slice(0, 5).map(function (x) { return '<li>' + (window.Utils && Utils.escapeHtml ? Utils.escapeHtml(x) : x) + '</li>'; }).join('');
         if (pl) {
           pl.innerHTML = practice.slice(0, 6).map(function (p) {
             const cls = /behavioral|STAR/i.test(p.t) ? 'badge-warning' : 'badge-primary';
             return '<a href="../preparation/preparation-plan.html" class="badge-app ' + cls + ' text-decoration-none">' +
-              p.t + ' · ' + p.n + ' Qs</a>';
+              esc(p.t) + ' · ' + esc(p.n) + ' Qs</a>';
           }).join('');
         }
       })();
@@ -354,11 +424,11 @@
       review.innerHTML = (report.answers || []).map((a, i) => `
         <div class="border-bottom pb-3 mb-3" style="border-color:var(--border)!important;">
           <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
-            <strong>Q${i+1}. ${a.question}</strong>
+            <strong>Q${i+1}. ${esc(a.question)}</strong>
             <span class="badge-app ${a.score >= 80 ? 'badge-success' : a.score >= 60 ? 'badge-warning' : 'badge-danger'} flex-shrink-0">${a.score}/100</span>
           </div>
-          <p class="small text-muted mb-2"><strong>Your answer:</strong> ${(a.answer || '').slice(0, 400)}${(a.answer || '').length > 400 ? '…' : ''}</p>
-          <p class="small mb-1"><strong>Evaluation:</strong> ${a.evaluation || 'Solid response. Could be more structured and include measurable outcomes from your experience.'}</p>
+          <p class="small text-muted mb-2"><strong>Your answer:</strong> ${esc((a.answer || '').slice(0, 400))}${(a.answer || '').length > 400 ? '…' : ''}</p>
+          <p class="small mb-1"><strong>Evaluation:</strong> ${esc(a.evaluation || 'Solid response. Could be more structured and include measurable outcomes from your experience.')}</p>
           <details class="small">
             <summary class="fw-semibold cursor-pointer">Suggested answer</summary>
             <p class="mt-2 mb-0 p-2 rounded-app" style="background:var(--surface-hover);">
@@ -366,7 +436,7 @@
                 var s = a.betterAnswer || a.idealAnswer || '';
                 var generic = !s || s.length < 50 ||
                   /explain the concept briefly|structure your answer|concept → example|define the concept|strong answer should|A clear answer:\s*\(1\)|state the idea in simple words/i.test(s);
-                if (!generic) return s;
+                if (!generic) return esc(s);
                 if (window.InterviewQuestions && InterviewQuestions.getModelAnswer && a.question) {
                   var m = InterviewQuestions.getModelAnswer(a.question);
                   if (m && m.length > 40 && !/state the idea in simple words/i.test(m)) return m;
@@ -441,8 +511,8 @@
           if (window.jspdf && window.jspdf.jsPDF) return resolve(window.jspdf.jsPDF);
           if (window.jsPDF) return resolve(window.jsPDF);
           var urls = [
-            'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
-            'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js'
+            '/vendor/jspdf/jspdf.umd.min.js',
+            '/vendor/jspdf/jspdf.umd.min.js'
           ];
           var i = 0;
           function tryNext() {

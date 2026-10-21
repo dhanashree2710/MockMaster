@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" class="interview-html">
 <head>
+  <script src="../../assets/js/safe-html.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2B5748">
   <title>AI Interview — MockMaster</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/interview.css" rel="stylesheet">
@@ -82,9 +83,9 @@
     </div>
   </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../../vendor/supabase/supabase.js"></script>
   <script src="../../assets/js/supabase-client.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../vendor/bootstrap/bootstrap.bundle.min.js"></script>
   <script src="../../assets/js/config.js"></script>
   <script src="../../assets/js/interview-questions.js"></script>
   <script src="../../assets/js/openai-interview.js"></script>
@@ -144,8 +145,10 @@
 
       return (window.InterviewQuestions
         ? InterviewQuestions.buildInterviewQuestions({ resume: resumeData, job: jobData, setup })
-        : (window.MOCK_QUESTIONS || [])).slice(0, setup.numQuestions || 10);
+        : GENERIC_QUESTIONS).slice(0, setup.numQuestions || 10);
     }
+
+    const GENERIC_QUESTIONS = [{ id: 1, type: 'intro', question: 'Tell me about yourself and your background.' },{ id: 2, type: 'behavioral', question: 'Describe a challenge you faced at work and how you handled it.' },{ id: 3, type: 'hr', question: 'Why are you interested in this role?' },{ id: 4, type: 'closing', question: 'Do you have any questions for me?' }];
 
     function updateTimer() {
       const s = Math.floor((Date.now() - startTime) / 1000);
@@ -161,7 +164,7 @@
       div.className = `message ${who}`;
       div.innerHTML = `
         <div class="message-avatar">${who === 'ai' ? '<i class="bi bi-robot"></i>' : '<i class="bi bi-person"></i>'}</div>
-        <div class="message-bubble">${text}</div>
+        <div class="message-bubble">${esc(text)}</div>
       `;
       const box = document.getElementById('messages');
       box.appendChild(div);
@@ -195,9 +198,47 @@
     // Credits per answered question
     const CREDITS_PER_ANSWER = 10;
 
+    /** Detect "repeat the question" / "say again" so we re-ask instead of advancing */
+    function isRepeatCommand(text) {
+      const t = String(text || '').toLowerCase().replace(/[^\w\s']/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!t || t.length > 80) return false;
+      // Exact / short phrases
+      if (/^(repeat|again|say again|one more time|pardon|pardon me|come again)$/i.test(t)) return true;
+      if (/^(please\s+)?(repeat|say)\s+(the\s+)?(question|that|it)(\s+please)?$/i.test(t)) return true;
+      if (/^(can|could|would)\s+you\s+(please\s+)?(repeat|say)\s+(the\s+)?(question|that|it)?/i.test(t)) return true;
+      if (/^(i\s+)?(didn't|did not|dont|don't|couldn't|could not)\s+(hear|catch|get|understand)/i.test(t) && t.split(/\s+/).length <= 10) return true;
+      if (/^(what was the question|what did you (ask|say)|sorry\s*(what|can you repeat))/i.test(t)) return true;
+      // Hindi / Hinglish common asks
+      if (/^(dobara|phir se|ek baar (aur|phir)|sawal (dobara|phir)|repeat karo|phir se bolo)/i.test(t)) return true;
+      return false;
+    }
+
+    function repeatCurrentQuestion() {
+      if (!questions.length || current >= questions.length) return;
+      const q = questions[current];
+      const box = document.getElementById('answerInput');
+      if (box) box.value = '';
+      document.getElementById('submitBtn').disabled = true;
+      addMessage('Of course — repeating the question.', 'ai');
+      setTimeout(() => {
+        addMessage(q.question, 'ai');
+        if (typeof speakText === 'function') speakText(q.question);
+        document.getElementById('statusBadge').innerHTML = '<i class="bi bi-circle-fill me-1" style="font-size:8px;"></i> Listening';
+        if (box) box.focus();
+      }, 400);
+      if (window.Utils && Utils.showToast) Utils.showToast('Repeating question…', 'info', 1800);
+    }
+
     document.getElementById('submitBtn').addEventListener('click', () => {
       const ans = document.getElementById('answerInput').value.trim();
       if (!ans) return;
+
+      // User asked to repeat — do NOT advance or score
+      if (isRepeatCommand(ans)) {
+        repeatCurrentQuestion();
+        return;
+      }
+
       addMessage(ans, 'user');
       const score = scoreAnswer(ans, questions[current]);
       const ev = buildEvaluation(ans, score, questions[current]);
@@ -315,21 +356,47 @@
 
     function finishInterview() {
       clearInterval(timerInterval);
-      const duration = Math.floor((Date.now() - startTime) / 1000);
+      let duration = Math.floor((Date.now() - startTime) / 1000);
+      // Ensure sensible duration when answers exist (avoids 0s history rows)
+      if (answers.length && duration < 5) duration = Math.max(5, answers.length * 15);
+
+      const scores = answers.map(a => Number(a.score) || 0).filter(n => n > 0);
+      const overallScore = answers.length
+        ? Math.round(answers.reduce((a, b) => a + (Number(b.score) || 0), 0) / answers.length)
+        : 0;
+
       const report = {
         answers,
         setup,
         duration,
-        overallScore: answers.length ? Math.round(answers.reduce((a, b) => a + b.score, 0) / answers.length) : 0,
+        overallScore,
         completedAt: new Date().toISOString()
       };
       sessionStorage.setItem('ipa_last_report', JSON.stringify(report));
-      // Save to history
+
+      // Persist report archive so Rewards / Voice / Exec360 work after refresh
+      try {
+        const archive = JSON.parse(localStorage.getItem('ipa_reports_archive') || '[]');
+        archive.unshift(report);
+        localStorage.setItem('ipa_reports_archive', JSON.stringify(archive.slice(0, 30)));
+      } catch (_) {}
+
+      // Track asked questions so re-attempts get different variety
+      try {
+        const jobKey = (setup.position || jobData.position || jobData.title || 'general').toLowerCase().slice(0, 80);
+        const usedKey = 'mm_used_questions_' + jobKey.replace(/\W+/g, '_');
+        const prev = JSON.parse(localStorage.getItem(usedKey) || '[]');
+        const asked = answers.map(a => String(a.question || '').slice(0, 120));
+        const merged = [...asked, ...prev].filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 80);
+        localStorage.setItem(usedKey, JSON.stringify(merged));
+      } catch (_) {}
+
+      // Save to history (local — source of truth for scores)
       const sessions = Utils.getStored(STORAGE_KEYS.sessions, []);
-      sessions.unshift({
+      const sessionRow = {
         id: Date.now(),
         position: setup.position || 'Mock Interview',
-        score: report.overallScore,
+        score: overallScore,
         date: report.completedAt,
         duration,
         difficulty: setup.difficulty,
@@ -339,9 +406,10 @@
         numQuestions: setup.numQuestions || answers.length,
         answers: answers,
         setup: setup
-      });
-      
-      Utils.setStored(STORAGE_KEYS.sessions, sessions.slice(0, 20));
+      };
+      sessions.unshift(sessionRow);
+      Utils.setStored(STORAGE_KEYS.sessions, sessions.slice(0, 30));
+
       // Save interview + report to Supabase
       (async () => {
         try {
@@ -373,24 +441,25 @@
                 questionId: qid,
                 answerText: answers[i].answer,
                 score: answers[i].score,
-                feedback: '',
+                feedback: answers[i].evaluation || '',
                 metrics: {},
                 durationSec: null
               });
             }
-            await DB.completeSession(sess.id);
+            // Save report FIRST so overall_score exists before complete
             await DB.saveReport({
               sessionId: sess.id,
-              overall: report.overallScore,
-              clarity: report.overallScore,
-              relevance: report.overallScore,
-              depth: report.overallScore,
-              delivery: report.overallScore,
-              strengths: ['Clear delivery', 'Relevant examples'],
-              improvements: ['Add metrics', 'Use STAR structure'],
-              summary: 'Completed mock interview for ' + (setup.position || 'role'),
-              detailed: { answers, setup, duration }
+              overall: overallScore,
+              clarity: overallScore,
+              relevance: overallScore,
+              depth: overallScore,
+              delivery: overallScore,
+              strengths: scores.length ? ['Completed all answered questions', 'Relevant examples where provided'] : ['Session recorded'],
+              improvements: overallScore < 70 ? ['Add metrics and STAR structure', 'Give fuller answers'] : ['Keep practicing advanced scenarios'],
+              summary: 'Completed mock interview for ' + (setup.position || 'role') + ' · Score ' + overallScore,
+              detailed: { answers, setup, duration, overallScore }
             });
+            await DB.completeSession(sess.id);
             await DB.refreshProgress();
           }
         } catch (err) { console.warn('Supabase interview save', err); }
@@ -530,6 +599,16 @@
               // Skip if this text is already at the end of what we have
               const soFar = (sessionFinals || '').toLowerCase();
               if (soFar.endsWith(norm) || soFar.includes(norm)) continue;
+              // Voice command: "repeat the question" → re-ask, do not treat as answer
+              if (isRepeatCommand(t) || isRepeatCommand((sessionFinals ? sessionFinals + ' ' : '') + t)) {
+                try { recognition.stop(); } catch (_) {}
+                isRecording = false;
+                setMicUI(false);
+                lastFinalNorm = norm;
+                processedResultIndex = i + 1;
+                repeatCurrentQuestion();
+                return;
+              }
               sessionFinals = (sessionFinals ? sessionFinals + ' ' : '') + t;
               lastFinalNorm = norm;
               processedResultIndex = i + 1;
@@ -647,10 +726,10 @@
         questions = await loadQuestions();
       } catch (e) {
         console.warn(e);
-        questions = (window.MOCK_QUESTIONS || []).slice(0, setup.numQuestions || 10);
+        questions = GENERIC_QUESTIONS.slice(0, setup.numQuestions || 10);
       }
       if (!questions || !questions.length) {
-        questions = (window.MOCK_QUESTIONS || [{ id: 1, question: 'Tell me about yourself.', type: 'intro' }]);
+        questions = GENERIC_QUESTIONS;
       }
       document.getElementById('qTotal').textContent = questions.length;
       document.getElementById('qTotalM').textContent = questions.length;

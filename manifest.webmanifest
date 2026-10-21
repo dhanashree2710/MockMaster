@@ -1,4 +1,5 @@
 {
+  "id": "/index.html",
   "name": "MockMaster — AI Interview Coach",
   "short_name": "MockMaster",
   "description": "Practice mock interviews with AI, optimize your resume for ATS, and track your progress.",
@@ -9,7 +10,10 @@
   "background_color": "#273338",
   "theme_color": "#2B5748",
   "lang": "en",
-  "categories": ["education", "productivity"],
+  "categories": [
+    "education",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "assets/images/icon-192.png",
@@ -24,7 +28,7 @@
       "purpose": "any"
     },
     {
-      "src": "assets/images/icon-512.png",
+      "src": "assets/images/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

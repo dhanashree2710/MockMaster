@@ -48,7 +48,7 @@ function showQuestion() {
   document.getElementById('q-text').textContent = q.text;
   document.getElementById('q-meta').innerHTML = `
     ${difficultyBadge(q.difficulty)}
-    <span class="badge badge-app bg-primary bg-opacity-10 text-primary">${q.category}</span>
+    <span class="badge badge-app bg-primary bg-opacity-10 text-primary">${esc(q.category)}</span>
   `;
   document.getElementById('answer-input').value = '';
 }

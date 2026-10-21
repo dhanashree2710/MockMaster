@@ -4,19 +4,30 @@
  */
 
 const APP_CONFIG = {
-  // Supabase (custom users table — set keys in assets/js/supabase-client.js)
+  // Supabase URL + anon key live in assets/js/supabase-client.js (Supabase Auth + RLS)
   supabaseUrl: null,
   supabaseAnonKey: null,
   name: 'MockMaster',
   tagline: 'Your Resume. Your Role. Your AI Interview Coach.',
-  version: '1.1.0',
+  version: '1.0.0',
 
   // When backend is ready, set this to your API base URL.
   // IMPORTANT: Prefer routing OpenAI calls through your own backend so the
   // secret key never ships to the browser. Example:
   //   apiBase: 'https://your-api.com/v1'
   // Then implement /v1/chat (and optional /v1/tts, /v1/transcribe) on the server.
-  apiBase: null, // e.g. 'https://api.interviewpro.ai/v1'
+  apiBase: null, // (legacy, unused)
+
+  // >>> BEFORE LAUNCH: put your real support email here. It is shown in the
+  // >>> Privacy Policy and the delete-account page (Play Console requires it).
+  supportEmail: 'support@REPLACE-WITH-YOUR-DOMAIN.com',
+
+  // AI proxy (Supabase Edge Function in supabase/functions/ai-chat).
+  // Deploy it, set the GROQ_API_KEY secret, and users need NO key of their own.
+  aiProxyUrl: 'https://uajfitgssxwgbgaueeex.supabase.co/functions/v1/ai-chat',
+
+  // Password reset (no email link) — deploy supabase/functions/reset-password
+  resetPasswordUrl: 'https://uajfitgssxwgbgaueeex.supabase.co/functions/v1/reset-password',
 
   // ------------------------------------------------------------------
   // AI PROVIDER CONFIG

@@ -356,106 +356,357 @@
     try { sessionStorage.removeItem('mm_q_seed'); } catch (_) {}
   }
 
+  function getUsedQuestionsForJob(position) {
+    try {
+      const jobKey = String(position || 'general').toLowerCase().slice(0, 80).replace(/\W+/g, '_');
+      return JSON.parse(localStorage.getItem('mm_used_questions_' + jobKey) || '[]');
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function isTooSimilar(a, b) {
+    const na = String(a || '').toLowerCase().replace(/\W+/g, ' ').trim();
+    const nb = String(b || '').toLowerCase().replace(/\W+/g, ' ').trim();
+    if (!na || !nb) return false;
+    if (na === nb) return true;
+    // overlap of significant words
+    const wa = na.split(/\s+/).filter(w => w.length > 3);
+    const wb = new Set(nb.split(/\s+/).filter(w => w.length > 3));
+    if (wa.length < 3) return false;
+    let hits = 0;
+    wa.forEach(w => { if (wb.has(w)) hits++; });
+    return hits / wa.length >= 0.7;
+  }
+
+  function filterUnused(pool, used) {
+    if (!pool || !pool.length) return [];
+    if (!used || !used.length) return pool.slice();
+    const fresh = pool.filter(q => !used.some(u => isTooSimilar(q, u)));
+    // If we filtered too aggressively, fall back to full pool so interviews still work
+    return fresh.length >= Math.min(3, pool.length) ? fresh : pool.slice();
+  }
+
+  /** Skill → realistic interview question templates (JD / resume driven) */
+  const SKILL_Q = {
+    sql: [
+      'Walk me through how you would write a SQL query to find the top 5 customers by revenue this quarter, including any JOINs you would use.',
+      'Explain the difference between INNER JOIN and LEFT JOIN with an example from a real reporting scenario.',
+      'How do you optimize a slow SQL query? What would you check first?'
+    ],
+    excel: [
+      'Describe a dashboard or report you built in Excel. Which formulas or Pivot Tables did you use?',
+      'How would you use VLOOKUP or XLOOKUP and Pivot Tables to clean and summarize messy sales data?',
+      'Explain how you would detect and handle duplicates and missing values in a large Excel file.'
+    ],
+    'power bi': [
+      'Walk me through a Power BI report you built — data sources, data model, and key visuals.',
+      'How do you use DAX measures vs calculated columns? Give a concrete example.',
+      'How would you design a Power BI dashboard for management KPIs for this role?'
+    ],
+    tableau: [
+      'Describe a Tableau dashboard you created and the business question it answered.',
+      'How do you choose chart types in Tableau for different stakeholders?'
+    ],
+    python: [
+      'Tell me about a Python script or analysis you wrote for work or a project. What libraries did you use?',
+      'How would you use pandas to clean a CSV with missing values and then compute summary statistics?',
+      'Explain a time you automated a repetitive task with Python.'
+    ],
+    javascript: [
+      'Explain a feature you built with JavaScript. How did you structure the code?',
+      'What is the difference between var, let, and const, and when do you use each?',
+      'How do you handle asynchronous operations in JavaScript (Promises / async-await)?'
+    ],
+    react: [
+      'Walk me through a React component you built. How did you manage state and props?',
+      'When would you use useEffect, and how do you avoid unnecessary re-renders?',
+      'How do you structure a mid-size React app (folders, components, state)?'
+    ],
+    html: [
+      'What are semantic HTML elements and why do they matter for accessibility and SEO?',
+      'How do you structure a responsive page with HTML and CSS?'
+    ],
+    css: [
+      'Explain the CSS box model and how you use Flexbox or Grid for layouts.',
+      'How do you approach responsive design for mobile and desktop?'
+    ],
+    java: [
+      'Describe an application or module you built in Java. What design patterns did you use?',
+      'Explain OOP concepts (encapsulation, inheritance, polymorphism) with a work example.'
+    ],
+    node: [
+      'Walk me through a Node.js API you built. How did you handle routing and errors?',
+      'How do you structure a REST API in Node and connect it to a database?'
+    ],
+    api: [
+      'Explain how you design or consume REST APIs. Give an example from a project.',
+      'How do you handle authentication and error responses when calling external APIs?'
+    ],
+    aws: [
+      'Which AWS services have you used, and for what use case?',
+      'How would you deploy a simple web app on AWS?'
+    ],
+    git: [
+      'How do you use Git in a team — branching, pull requests, and resolving conflicts?'
+    ],
+    testing: [
+      'How do you approach testing (unit, integration, manual)? Give an example from a project.',
+      'Describe a bug you found and how you isolated and fixed it.'
+    ]
+  };
+
+  function normalizeSkill(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9+#.\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function skillKey(s) {
+    const n = normalizeSkill(s);
+    if (/power\s*bi|powerbi/.test(n)) return 'power bi';
+    if (/tableau/.test(n)) return 'tableau';
+    if (/\bsql\b|mysql|postgres|tsql/.test(n)) return 'sql';
+    if (/excel|spreadsheet|vlookup|pivot/.test(n)) return 'excel';
+    if (/python|pandas|numpy/.test(n)) return 'python';
+    if (/react|redux|next\.?js/.test(n)) return 'react';
+    if (/javascript|typescript|\bjs\b/.test(n)) return 'javascript';
+    if (/\bhtml\b/.test(n)) return 'html';
+    if (/\bcss\b|tailwind|bootstrap/.test(n)) return 'css';
+    if (/\bjava\b(?!script)/.test(n)) return 'java';
+    if (/node\.?js|express/.test(n)) return 'node';
+    if (/\bapi\b|rest|graphql/.test(n)) return 'api';
+    if (/aws|azure|gcp|cloud/.test(n)) return 'aws';
+    if (/\bgit\b|github|gitlab/.test(n)) return 'git';
+    if (/test|qa|selenium|jest|cypress/.test(n)) return 'testing';
+    return n.split(' ')[0] || n;
+  }
+
+  function questionsForSkill(skill, position) {
+    const key = skillKey(skill);
+    const templates = SKILL_Q[key];
+    if (templates && templates.length) return templates.slice();
+    const label = String(skill).trim();
+    if (!label || label.length < 2) return [];
+    return [
+      'This role requires ' + label + '. Tell me about a project or task where you used ' + label + ', and what the outcome was.',
+      'How would you apply ' + label + ' day-to-day in a ' + position + ' role? Give a concrete example.'
+    ];
+  }
+
+  function collectJobSkills(job) {
+    const raw = []
+      .concat(job && job.skills || [])
+      .concat(job && job.requiredSkills || [])
+      .concat(job && job.preferredSkills || []);
+    const desc = String((job && (job.description || job.raw_text)) || '').toLowerCase();
+    const tokens = ['sql', 'excel', 'power bi', 'tableau', 'python', 'javascript', 'react', 'html', 'css',
+      'java', 'node', 'aws', 'git', 'api', 'rest', 'pandas', 'dax', 'pivot'];
+    tokens.forEach(function (t) { if (desc.indexOf(t) !== -1) raw.push(t); });
+    const seen = {};
+    const out = [];
+    raw.forEach(function (s) {
+      const k = skillKey(s);
+      if (k && !seen[k] && String(s).trim().length > 1) {
+        seen[k] = true;
+        out.push(String(s).trim());
+      }
+    });
+    return out.slice(0, 12);
+  }
+
+  function collectResumeSkills(resume) {
+    return []
+      .concat((resume && resume.skills && resume.skills.technical) || [])
+      .concat((resume && resume.skills && resume.skills.tools) || [])
+      .concat((resume && resume.skills && resume.skills.frameworks) || [])
+      .concat((resume && resume.skills && resume.skills.languages) || [])
+      .map(String)
+      .filter(Boolean)
+      .slice(0, 15);
+  }
+
+  function resumeProjects(resume) {
+    return ((resume && resume.projects) || []).slice(0, 4).map(function (p) {
+      return {
+        name: p.name || p.title || 'a project',
+        tech: Array.isArray(p.tech) ? p.tech.join(', ') : (p.tech || p.technologies || ''),
+        desc: p.description || p.summary || ''
+      };
+    });
+  }
+
   function buildInterviewQuestions({ resume, job, setup }) {
-    // New seed every time this interview is built → different questions each session
+    // Company-style interview: intro → resume/JD → skill questions → scenario → behavioral → closing
     resetQuestionSeed();
-    const num = Math.min(20, Math.max(5, Number(setup?.numQuestions) || 10));
-    const type = (setup?.type || 'Technical + HR').toLowerCase();
-    const difficulty = (setup?.difficulty || 'Medium').toLowerCase();
-    const position = setup?.position || job?.position || job?.title || 'this role';
-    const name = (resume?.name || 'there').split(/\s+/)[0];
+    const num = Math.min(20, Math.max(5, Number(setup && setup.numQuestions) || 10));
+    const type = String((setup && setup.type) || 'Technical + HR').toLowerCase();
+    const difficulty = String((setup && setup.difficulty) || 'Medium').toLowerCase();
+    const position = (setup && setup.position) || (job && (job.position || job.title)) || 'this role';
+    const company = String((job && job.company) || '').trim();
+    const name = String((resume && resume.name) || 'there').split(/\s+/)[0];
     const domain = detectDomain(position, job, resume, setup);
     const bank = BANKS[domain] || BANKS.general;
-    const { exp0, skills } = resumeBits(resume || {});
+    const bits = resumeBits(resume || {});
+    const exp0 = bits.exp0;
+    const usedQs = getUsedQuestionsForJob(position);
 
-    const wantTech = /technical|coding|system|full\s*stack|frontend|backend/i.test(type) || type.includes('technical');
-    const wantHr = /hr|behavioral|\+/.test(type) || type.includes('hr');
-    const wantCoding = /coding|technical/i.test(type) || ['frontend','fullstack','backend','data','qa','devops','system_design'].includes(domain);
+    const jobSkills = collectJobSkills(job || {});
+    const resumeSkills = collectResumeSkills(resume || {});
+    const projects = resumeProjects(resume || {});
+    const responsibilities = ((job && job.responsibilities) || []).map(String).filter(function (r) { return r.length > 20; }).slice(0, 6);
+
+    const overlap = jobSkills.filter(function (js) {
+      return resumeSkills.some(function (rs) {
+        const a = normalizeSkill(js), b = normalizeSkill(rs);
+        return a.indexOf(b) !== -1 || b.indexOf(a) !== -1 || skillKey(js) === skillKey(rs);
+      });
+    });
+    const missing = jobSkills.filter(function (js) {
+      return !resumeSkills.some(function (rs) {
+        const a = normalizeSkill(js), b = normalizeSkill(rs);
+        return a.indexOf(b) !== -1 || b.indexOf(a) !== -1 || skillKey(js) === skillKey(rs);
+      });
+    });
+
+    const wantTech = /technical|coding|system|full\s*stack|frontend|backend|data/i.test(type) || type.indexOf('technical') !== -1 ||
+      ['frontend', 'backend', 'fullstack', 'data', 'qa', 'devops'].indexOf(domain) !== -1;
+    const wantHr = true;
+    const wantCoding = /coding|technical/i.test(type) || ['frontend', 'fullstack', 'backend', 'data', 'qa', 'devops'].indexOf(domain) !== -1;
 
     const questions = [];
     let id = 1;
-    const push = (q, meta) => {
+    function push(q, meta) {
       if (questions.length >= num) return;
-      questions.push({ id: id++, ...meta, question: q });
-    };
+      const text = String(q || '').trim();
+      if (!text || text.length < 12) return;
+      if (questions.some(function (x) { return isTooSimilar(x.question, text); })) return;
+      questions.push(Object.assign({ id: id++ }, meta, { question: text }));
+    }
 
-    // Intro tied to TARGET ROLE (not only resume career)
+    // 1) Company-style intro
+    const companyBit = company ? (' at ' + company) : '';
     push(
-      `Hello ${name}. Welcome to your mock interview for the ${position} position. Please introduce yourself and highlight experience relevant to this role.`,
-      { type: 'intro', level: 'basic', domain }
+      'Hello ' + name + ', thank you for joining us today. I am conducting this interview for the ' + position + ' position' + companyBit + '. Please introduce yourself and walk me through your background, focusing on experience relevant to this role.',
+      { type: 'intro', level: 'basic', domain: domain }
     );
 
-    // Optional resume bridge if experience exists
+    // 2) Resume bridge
     if (exp0 && questions.length < num) {
       push(
-        `I see on your resume you worked as ${exp0.role}${exp0.company ? ' at ' + exp0.company : ''}${exp0.duration ? ' (' + exp0.duration + ')' : ''}. How does that experience prepare you for a ${position} role?`,
-        { type: 'resume', level: 'basic', domain }
+        'I see on your resume you worked as ' + exp0.role + (exp0.company ? ' at ' + exp0.company : '') + (exp0.duration ? ' (' + exp0.duration + ')' : '') + '. How does that experience prepare you for a ' + position + ' role' + companyBit + '?',
+        { type: 'resume', level: 'basic', domain: domain }
       );
     }
-
-    // Build pool by difficulty
-    let basicN, midN, advN, pracN, codeN;
-    if (difficulty === 'easy') {
-      basicN = 4; midN = 2; advN = 1; pracN = 1; codeN = 1;
-    } else if (difficulty === 'hard') {
-      basicN = 1; midN = 2; advN = 2; pracN = 2; codeN = 3;
-    } else {
-      basicN = 2; midN = 2; advN = 2; pracN = 2; codeN = 3;
-    }
-
-    if (wantTech) {
-      take(bank.basic, basicN).forEach(q => push(q, { type: 'technical', level: 'basic', domain }));
-      take(bank.intermediate, midN).forEach(q => push(q, { type: 'technical', level: 'intermediate', domain }));
-      take(bank.advanced, advN).forEach(q => push(q, { type: 'technical', level: 'advanced', domain }));
-      take(bank.practical || [], pracN).forEach(q => push(q, { type: 'scenario', level: 'advanced', domain }));
-      if (wantCoding) {
-        take(bank.coding || [], codeN).forEach(q => push(q, { type: 'coding', level: 'intermediate', domain }));
-      }
-    }
-
-    // Job skill gap (from JD)
-    const jobSkills = (job?.skills || []).map(String);
-    if (jobSkills.length && questions.length < num - 1) {
-      const missing = jobSkills.filter(js =>
-        !skills.some(s => s.toLowerCase().includes(js.toLowerCase()) || js.toLowerCase().includes(s.toLowerCase()))
-      );
-      if (missing.length) {
-        push(
-          `This ${position} role emphasizes ${missing.slice(0, 3).join(', ')}. How would you approach learning or demonstrating ${missing[0]} quickly?`,
-          { type: 'gap', level: 'intermediate', domain }
-        );
-      } else {
-        push(
-          `The job description highlights ${jobSkills.slice(0, 3).join(', ')}. Tell me about a project where you used one of these.`,
-          { type: 'job', level: 'intermediate', domain }
-        );
-      }
-    }
-
-    if (wantHr) {
-      push(BEHAVIORAL[Math.floor(Math.random() * BEHAVIORAL.length)], { type: 'behavioral', level: 'intermediate', domain });
+    if (projects.length && questions.length < num) {
+      const proj = projects[0];
       push(
-        `Why are you interested in the ${position} role, and why should we hire you?`,
-        { type: 'hr', level: 'basic', domain }
+        'You listed a project called "' + proj.name + '"' + (proj.tech ? ' using ' + proj.tech : '') + '. Walk me through your role, the problem you solved, and the result.',
+        { type: 'project', level: 'intermediate', domain: domain }
       );
     }
 
-    push('Do you have any questions for me about the role, the team, or next steps?', {
-      type: 'closing',
-      level: 'basic',
-      domain
+    // 3) JD + resume skill questions (majority of interview)
+    const skillOrder = overlap
+      .concat(jobSkills.filter(function (s) { return overlap.indexOf(s) === -1; }))
+      .concat(resumeSkills.filter(function (s) {
+        return !jobSkills.some(function (j) { return skillKey(j) === skillKey(s); });
+      }));
+
+    const skillQBudget = Math.max(3, Math.min(num - 3, Math.floor(num * 0.55)));
+    let skillQCount = 0;
+    const skillPool = [];
+    skillOrder.forEach(function (sk) {
+      questionsForSkill(sk, position).forEach(function (q) { skillPool.push(q); });
+    });
+    take(filterUnused(skillPool, usedQs), skillQBudget + 4).forEach(function (q) {
+      if (skillQCount >= skillQBudget) return;
+      push(q, { type: 'technical', level: difficulty === 'easy' ? 'basic' : 'intermediate', domain: domain });
+      skillQCount++;
     });
 
-    // If still short, fill from domain bank
-    const filler = [].concat(bank.basic, bank.intermediate, bank.advanced, bank.practical || []);
-    let fi = 0;
-    while (questions.length < num && filler.length) {
-      push(filler[fi % filler.length], { type: 'technical', level: 'intermediate', domain });
+    // 4) JD responsibility scenario
+    if (responsibilities.length && questions.length < num - 1) {
+      const r = responsibilities[Math.floor(Math.random() * responsibilities.length)];
+      push(
+        'One of the responsibilities for this ' + position + ' role is: "' + r.slice(0, 160) + '". How would you approach this in your first 90 days?',
+        { type: 'scenario', level: 'advanced', domain: domain }
+      );
+    } else if (jobSkills.length && questions.length < num - 1) {
+      push(
+        'Looking at this ' + position + ' job description, which of your past projects best matches what we need, and why?',
+        { type: 'job', level: 'intermediate', domain: domain }
+      );
+    }
+
+    // 5) Skill gap
+    if (missing.length && questions.length < num - 1) {
+      push(
+        'This ' + position + ' role emphasizes ' + missing.slice(0, 3).join(', ') + '. How would you ramp up on ' + missing[0] + ' quickly if you joined us?',
+        { type: 'gap', level: 'intermediate', domain: domain }
+      );
+    }
+
+    // 6) Light domain bank only if still short
+    if (wantTech && questions.length < num - 2) {
+      const need = Math.min(2, num - questions.length - 2);
+      const pool = filterUnused([].concat(bank.intermediate || [], bank.practical || [], bank.basic || []), usedQs);
+      take(pool, need).forEach(function (q) {
+        push(q, { type: 'technical', level: 'intermediate', domain: domain });
+      });
+    }
+    if (wantCoding && questions.length < num - 2 && (bank.coding || []).length) {
+      take(filterUnused(bank.coding, usedQs), 1).forEach(function (q) {
+        push(q, { type: 'coding', level: 'intermediate', domain: domain });
+      });
+    }
+
+    // 7) Behavioral + motivation
+    if (wantHr && questions.length < num) {
+      const behPool = filterUnused([
+        'Tell me about a challenging situation at work and how you handled it.',
+        'Describe a time you had to meet a tight deadline. What did you prioritize?',
+        'Give an example of when you worked with a difficult stakeholder or teammate.',
+        'Tell me about a mistake you made and what you learned from it.'
+      ].concat(typeof BEHAVIORAL !== 'undefined' ? BEHAVIORAL : []), usedQs);
+      if (behPool.length) push(behPool[0], { type: 'behavioral', level: 'intermediate', domain: domain });
+
+      const hrVariants = [
+        'Why are you interested in this ' + position + ' role' + companyBit + ', and why should we hire you?',
+        'What draws you to this ' + position + ' opportunity, and what unique value would you bring in the first 6 months?',
+        'How does this ' + position + ' role fit your career goals over the next 2–3 years?'
+      ];
+      const hrFresh = filterUnused(hrVariants, usedQs);
+      push(hrFresh[0] || hrVariants[0], { type: 'hr', level: 'basic', domain: domain });
+    }
+
+    // 8) Closing
+    push(
+      'We are almost at the end. Do you have any questions for me about the ' + position + ' role, the team, or next steps in the process?',
+      { type: 'closing', level: 'basic', domain: domain }
+    );
+
+    // Fill remaining from skill pool / domain bank
+    const filler = filterUnused(
+      skillPool.concat(bank.basic || [], bank.intermediate || [], bank.practical || []),
+      usedQs.concat(questions.map(function (q) { return q.question; }))
+    );
+    var fi = 0;
+    while (questions.length < num && filler.length && fi < filler.length * 2) {
+      push(filler[fi % filler.length], { type: 'technical', level: 'intermediate', domain: domain });
       fi++;
     }
 
-    return questions.slice(0, num);
+    // Intro must stay first
+    const introIdx = questions.findIndex(function (q) { return q.type === 'intro'; });
+    if (introIdx > 0) {
+      const intro = questions.splice(introIdx, 1)[0];
+      questions.unshift(intro);
+    }
+
+    return questions.slice(0, num).map(function (q, i) {
+      return Object.assign({}, q, { id: i + 1 });
+    });
   }
+
 
 
   const MODEL_ANSWERS = [

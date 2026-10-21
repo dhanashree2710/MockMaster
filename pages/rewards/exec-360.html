@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/safe-html.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Executive 360° Breakdown — MockMaster</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link href="../../vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="../../assets/css/variables.css" rel="stylesheet">
   <link href="../../assets/css/style.css" rel="stylesheet">
   <link href="../../assets/css/responsive.css" rel="stylesheet">
@@ -26,18 +27,35 @@
     <div id="gate" class="d-none card-app mb-3"><div class="card-body"></div></div>
     <div id="app"></div>
   </div></main>
+  <script src="../../vendor/supabase/supabase.js"></script>
+  <script src="../../assets/js/supabase-client.js"></script>
   <script src="../../assets/js/config.js"></script>
   <script src="../../assets/js/utils.js"></script>
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
-    try { if (!Utils.getRedeemed().includes('exec360')) Utils.markRedeemed('exec360'); } catch(_) {}
-    if (false && !Utils.getRedeemed().includes('exec360')) {
+    if (!Utils.getRedeemed().includes('exec360')) {
       document.getElementById('gate').classList.remove('d-none');
-      document.getElementById('gate').querySelector('.card-body').innerHTML = '<p>Redeem <strong>Executive 360°</strong> (150 credits) to unlock.</p><a class="btn-primary-app" href="../rewards.html">Rewards</a>';
+      document.getElementById('gate').querySelector('.card-body').innerHTML = '<p>Redeem <strong>Executive 360°</strong> (50 credits) to unlock — includes ₹15 prize.</p><a class="btn-primary-app" href="../rewards.html">Rewards</a>';
     } else {
-      const report = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null')
-        || (JSON.parse(localStorage.getItem('ipa_reports_archive') || '[]')[0] || null);
+      function findBestReport() {
+        try {
+          const last = JSON.parse(sessionStorage.getItem('ipa_last_report') || 'null');
+          if (last && (last.answers || []).length) return last;
+        } catch (_) {}
+        try {
+          const arch = JSON.parse(localStorage.getItem('ipa_reports_archive') || '[]');
+          const hit = arch.find(r => r && (r.answers || []).length);
+          if (hit) return hit;
+        } catch (_) {}
+        try {
+          const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+          const s = sessions.find(x => x && (x.answers || []).length);
+          if (s) return { answers: s.answers, duration: s.duration, overallScore: s.score, setup: s.setup || { position: s.position } };
+        } catch (_) {}
+        return null;
+      }
+      const report = findBestReport();
       const el = document.getElementById('app');
       if (!report || !(report.answers || []).length) {
         el.innerHTML = '<div class="card-app"><div class="card-body"><p>Complete a mock interview first, then return here for the 360° breakdown.</p><a class="btn-primary-app" href="../interview/interview-setup.html">Start interview</a></div></div>';
@@ -57,10 +75,10 @@
               const star = /situation|task|action|result|i (led|built|implemented)|because|for example/i.test(a.answer||'') ? 'STAR signals detected' : 'Weak STAR structure — add Situation → Action → Result';
               const sentiment = (a.score||0) >= 70 ? 'Confident tone' : (a.score||0) >= 45 ? 'Neutral / hesitant' : 'Low confidence / incomplete';
               return `<div class="border-bottom py-3" style="border-color:var(--border)!important">
-                <div class="d-flex justify-content-between gap-2"><strong>Q${i+1}. ${(a.question||'').slice(0,120)}</strong><span class="badge-app ${a.score>=70?'badge-success':a.score>=50?'badge-warning':'badge-danger'}">${a.score}/100</span></div>
-                <p class="small text-muted mb-1"><strong>You:</strong> ${(a.answer||'').slice(0,220)}</p>
+                <div class="d-flex justify-content-between gap-2"><strong>Q${i+1}. ${esc((a.question||'').slice(0,120))}</strong><span class="badge-app ${a.score>=70?'badge-success':a.score>=50?'badge-warning':'badge-danger'}">${a.score}/100</span></div>
+                <p class="small text-muted mb-1"><strong>You:</strong> ${esc((a.answer||'').slice(0,220))}</p>
                 <p class="small mb-0"><strong>Presence:</strong> ${sentiment} · <strong>Structure:</strong> ${star}</p>
-                ${a.betterAnswer ? `<details class="small mt-1"><summary>Suggested answer</summary><p class="mt-1 mb-0">${a.betterAnswer}</p></details>` : ''}
+                ${a.betterAnswer ? `<details class="small mt-1"><summary>Suggested answer</summary><p class="mt-1 mb-0">${esc(a.betterAnswer)}</p></details>` : ''}
               </div>`;
             }).join('')}
             <div class="mt-3"><a class="btn-outline-app" href="../report/interview-report.html">Open full report</a></div>

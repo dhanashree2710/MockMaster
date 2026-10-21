@@ -1,6 +1,8 @@
 /**
  * MockMaster — AI Interview Question Agent
- * Providers: Groq (free), Gemini (free), OpenAI (paid)
+ * Production path: calls YOUR Supabase Edge Function (APP_CONFIG.aiProxyUrl) with the
+ * user's login token — no API key ever ships in the app.
+ * Optional "advanced" path: user's own Groq/Gemini/OpenAI key from Settings.
  * Generates questions tailored to resume + job description with mixed types
  * and progression basic → intermediate → advanced.
  * Falls back to local InterviewQuestions banks when key missing or API fails.
@@ -49,12 +51,45 @@
     };
   }
 
+  function proxyUrl() {
+    var c = global.APP_CONFIG || {};
+    return (c.aiProxyUrl || '').trim();
+  }
+
+  function hasOwnKey() {
+    var c = getConfig();
+    return !!(c.groqKey || c.geminiKey || c.openaiKey);
+  }
+
   function isConfigured() {
-    const c = getConfig();
+    if (proxyUrl()) return true;           // server-side key (recommended)
+    var c = getConfig();
     if (c.provider === 'groq') return !!c.groqKey;
     if (c.provider === 'gemini') return !!c.geminiKey;
     if (c.provider === 'openai') return !!c.openaiKey;
-    return !!(c.groqKey || c.geminiKey || c.openaiKey);
+    return hasOwnKey();
+  }
+
+  /** Call the Edge Function proxy with the signed-in user's token */
+  async function chatProxy(messages, temperature) {
+    var token = null;
+    try { token = global.DB && DB.getAccessToken ? await DB.getAccessToken() : null; } catch (_) {}
+    if (!token) throw new Error('Please sign in to use AI questions');
+    var headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+    try { if (typeof SUPABASE_ANON_KEY !== 'undefined') headers.apikey = SUPABASE_ANON_KEY; } catch (_) {}
+    var res = await fetch(proxyUrl(), {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ messages: messages, temperature: temperature == null ? 0.6 : temperature })
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      var e = new Error(err.error || ('AI service error ' + res.status));
+      e.status = res.status;
+      throw e;
+    }
+    var data = await res.json();
+    return extractJson(data.content);
   }
 
   function extractJson(text) {
@@ -144,13 +179,28 @@
     return extractJson(text);
   }
 
-  async function chat(messages, temperature) {
+  async function chatDirect(messages, temperature) {
     var c = getConfig();
     if (c.provider === 'gemini') return chatGemini(messages, temperature);
     if (c.provider === 'groq') {
       return chatOpenAICompatible(c.groqBase, c.groqKey, c.groqModel, messages, temperature);
     }
     return chatOpenAICompatible(c.openaiBase, c.openaiKey, c.openaiModel, messages, temperature);
+  }
+
+  async function chat(messages, temperature) {
+    if (proxyUrl()) {
+      try {
+        return await chatProxy(messages, temperature);
+      } catch (e) {
+        // Rate-limited or not signed in: don't silently burn a personal key.
+        if (e && (e.status === 429 || e.status === 401)) throw e;
+        // Proxy down / not deployed: fall back to user's own key if they set one
+        if (!hasOwnKey()) throw e;
+        console.warn('AI proxy unavailable, using personal key', e && e.message);
+      }
+    }
+    return chatDirect(messages, temperature);
   }
 
   function resumeSummary(resume) {
@@ -213,24 +263,37 @@
     var language = setup.language || 'en';
 
     var system = [
-      'You are an expert AI interview coach for MockMaster, specialized in realistic Indian and global job interviews.',
-      'Your job is to act as a QUESTION GENERATION AGENT.',
+      'You are a senior hiring manager conducting a REAL company interview for MockMaster.',
+      'You generate the exact questions the interviewer will ask — not generic quiz questions.',
       '',
       'CRITICAL RULES:',
-      '1. Generate questions that are STRICTLY tailored to the TARGET POSITION, JOB DESCRIPTION, and CANDIDATE RESUME.',
-      '2. NEVER repeat the same generic questions every time. Each set must feel unique — vary wording, focus, and depth.',
-      '3. For TECHNICAL roles (developer, engineer, SDE, fullstack, backend, frontend, data, QA, devops): include coding, algorithm/logic, and problem-solving questions (e.g. arrays, strings, complexity, SQL logic, system design snippets). Ask candidates to talk through code or logic, not only theory.',
-      '4. For NON-technical roles: do NOT force coding. Match domain (Data Analyst → SQL/Excel/BI; HR → recruiting; Trainer → facilitation; etc.).',
-      '5. Use the candidate\'s real experience, projects, and skills from the resume to personalize (e.g. "On your resume you worked on X — walk me through...").',
-      '6. Where JD skills are missing on the resume, include 1–2 gap/learning questions.',
-      '7. Progress: intro → basic → intermediate → advanced → coding/logic (if technical) → scenario → closing.',
-      '8. Mix TYPES: intro (1), technical (several), coding/logic (2–3 if technical), behavioral/HR (1–2), scenario (1–2), gap (0–1), closing (1).',
-      '9. For EVERY question provide a strong idealAnswer — concrete, structured, with examples.',
-      '10. Return strict JSON only, no markdown fences:',
-      '   { "questions": [ { "question": string, "type": "intro|technical|behavioral|scenario|hr|coding|gap|closing", "level": "basic|intermediate|advanced", "idealAnswer": string } ] }',
-      '11. Language code: ' + language + '. Difficulty: ' + difficulty + '. Style: ' + style + '.',
-      '12. Session uniqueness token: ' + Date.now() + ' — use this to vary question selection and phrasing so consecutive interviews differ.'
+      '1. MOST questions (at least 60%) MUST directly reference skills, tools, or responsibilities from the JOB DESCRIPTION and projects/skills from the CANDIDATE RESUME.',
+      '2. Interview flow MUST feel like a real company interview:',
+      '   Q1 = warm intro: welcome candidate, ask them to introduce themselves for THIS role.',
+      '   Q2 = resume bridge: pick one real job or project from the resume and dig into it.',
+      '   Then skill/technical questions tied to JD + resume (SQL, Power BI, Python, React, etc. as listed).',
+      '   Then 1 scenario from a JD responsibility.',
+      '   Then 1 behavioral (STAR).',
+      '   Then motivation ("Why this role?").',
+      '   Last = closing: ask if the candidate has questions.',
+      '3. NEVER ask generic unrelated questions (e.g. pure HTML basics for a Data Analyst JD that lists SQL/Power BI/Python).',
+      '4. Prefer skills that appear on BOTH the JD and the resume. For JD-only skills, ask a gap/learning question.',
+      '5. Name real resume projects and companies when asking follow-ups.',
+      '6. For technical roles: include practical problem-solving (SQL logic, dashboard design, code walk-through) — not only definitions.',
+      '7. For NON-technical roles: do NOT force coding.',
+      '8. NEVER repeat previously asked questions if a list is provided.',
+      '9. Every question needs a strong idealAnswer (structured, with example).',
+      '10. Return strict JSON only, no markdown:',
+      '   { "questions": [ { "question": string, "type": "intro|resume|project|technical|behavioral|scenario|hr|coding|gap|closing", "level": "basic|intermediate|advanced", "idealAnswer": string } ] }',
+      '11. Language: ' + language + '. Difficulty: ' + difficulty + '. Style: ' + style + '.',
+      '12. Uniqueness token: ' + Date.now() + '.'
     ].join('\n');
+
+    var prevAsked = [];
+    try {
+      var jobKey = String(position || 'general').toLowerCase().slice(0, 80).replace(/\W+/g, '_');
+      prevAsked = JSON.parse(localStorage.getItem('mm_used_questions_' + jobKey) || '[]').slice(0, 25);
+    } catch (_) {}
 
     var user = [
       'Target position: ' + position,
@@ -246,7 +309,13 @@
       '=== JOB DESCRIPTION ===',
       jobSummary(job),
       '',
-      'Generate exactly ' + num + ' UNIQUE, high-quality interview questions. For technical roles prioritize coding + logical problem-solving questions with clear expected approaches.'
+      prevAsked.length
+        ? ('=== PREVIOUSLY ASKED (do NOT repeat or paraphrase) ===\n' + prevAsked.map(function (q, i) { return (i + 1) + '. ' + q; }).join('\n') + '\n')
+        : '',
+      'Generate exactly ' + num + ' UNIQUE interview questions.',
+      'PRIORITY: ground questions in the JD skills and the candidate resume projects/skills listed above.',
+      'Start with a company-style introduction question, then resume/project dig-in, then skill questions, then scenario, behavioral, motivation, and closing.',
+      'Do NOT invent unrelated topics that are not in the JD or resume.'
     ].join('\n');
 
     var data = await chat(
@@ -320,7 +389,7 @@
         source: 'local'
       };
     }
-    return { questions: global.MOCK_QUESTIONS || [], source: 'mock' };
+    return { questions: [{ id: 1, type: 'intro', question: 'Tell me about yourself and your background.' },{ id: 2, type: 'behavioral', question: 'Describe a challenge you faced at work and how you handled it.' },{ id: 3, type: 'hr', question: 'Why are you interested in this role?' },{ id: 4, type: 'closing', question: 'Do you have any questions for me?' }], source: 'generic' };
   }
 
   global.OpenAIInterview = {

@@ -1,0 +1,21 @@
+{
+  "_readme": "Template for Bubblewrap. Preferred: run `bubblewrap init --manifest=https://YOUR_HOST/manifest.webmanifest` and let it generate this file, then compare. Fill the placeholder values with scripts/configure.py. packageId can NEVER change after first Play upload.",
+  "packageId": "REPLACE.WITH.YOUR.PACKAGE.ID",
+  "host": "REPLACE-your-host.example.com",
+  "name": "MockMaster — AI Interview Coach",
+  "launcherName": "MockMaster",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#2B5748",
+  "navigationColor": "#2B5748",
+  "backgroundColor": "#273338",
+  "startUrl": "/index.html",
+  "iconUrl": "https://REPLACE-your-host.example.com/assets/images/icon-512.png",
+  "maskableIconUrl": "https://REPLACE-your-host.example.com/assets/images/icon-512-maskable.png",
+  "webManifestUrl": "https://REPLACE-your-host.example.com/manifest.webmanifest",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "enableNotifications": false,
+  "fallbackType": "customtabs",
+  "signingKey": { "path": "./mockmaster-upload.keystore", "alias": "mockmaster" }
+}

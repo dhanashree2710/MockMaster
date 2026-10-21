@@ -27,9 +27,9 @@
   }
 
   async function extractTextFromPDF(file) {
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    await loadScript('/vendor/pdfjs/pdf.min.js');
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      '/vendor/pdfjs/pdf.worker.min.js';
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
     const parts = [];
@@ -54,7 +54,7 @@
   }
 
   async function extractTextFromDOCX(file) {
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+    await loadScript('/vendor/mammoth/mammoth.browser.min.js');
     const buf = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer: buf });
     return result.value || '';

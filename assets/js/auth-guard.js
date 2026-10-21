@@ -2,22 +2,32 @@
  * Auth Guard — Login required popup + session helpers (Supabase / localStorage)
  */
 (function () {
-  const PUBLIC = ['index.html', 'login.html', 'register.html', ''];
+  const PUBLIC = ['index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'reset-password.html', 'forgot-password.html', ''];
 
   function currentPage() {
     return (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();
   }
 
-  function isLoggedIn() {
+  function hasAuthToken() {
     try {
-      if (localStorage.getItem('mm_session')) return true;
-      const u = localStorage.getItem('ipa_user');
-      if (!u) return false;
-      const parsed = JSON.parse(u);
-      return !!(parsed && (parsed.email || parsed.name || parsed.id || parsed.loggedIn));
-    } catch {
-      return false;
-    }
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && /^sb-.+-auth-token$/.test(k)) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function isLoggedIn() {
+    // Need BOTH the local profile marker and a real Supabase Auth token.
+    try {
+      const raw = localStorage.getItem('mm_session');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && p.userId && p.userId !== 'demo' && hasAuthToken()) return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   function loginPath() {
@@ -31,6 +41,17 @@
     return 'pages/login.html';
   }
 
+  function homePath() {
+    const path = window.location.pathname;
+    if (path.includes('/pages/resume/') || path.includes('/pages/job/') ||
+        path.includes('/pages/preparation/') || path.includes('/pages/interview/') ||
+        path.includes('/pages/report/') || path.includes('/pages/rewards/')) {
+      return '../../index.html';
+    }
+    if (path.includes('/pages/')) return '../index.html';
+    return 'index.html';
+  }
+
   function showLoginPopup() {
     if (document.getElementById('loginRequiredModal')) return;
 
@@ -40,8 +61,8 @@
       <style>
         #loginRequiredModal {
           position: fixed; inset: 0; z-index: 9999;
-          background: rgba(39, 51, 56, 0.55);
-          backdrop-filter: blur(6px);
+          background: rgba(39, 51, 56, 0.75);
+          backdrop-filter: blur(8px);
           display: flex; align-items: center; justify-content: center;
           padding: 1.25rem; animation: fadeIn 0.25s ease;
         }
@@ -50,7 +71,7 @@
         #loginRequiredModal .modal-card {
           background: #fff; border-radius: 20px; padding: 2rem 1.75rem;
           max-width: 380px; width: 100%; text-align: center;
-          box-shadow: 0 25px 50px -12px rgba(39, 51, 56, 0.3);
+          box-shadow: 0 25px 50px -12px rgba(39, 51, 56, 0.45);
           animation: slideUp 0.35s ease;
         }
         #loginRequiredModal .modal-icon {
@@ -76,34 +97,47 @@
         }
         #loginRequiredModal .btn-close-modal {
           display: block; margin: 1rem auto 0; background: none; border: none;
-          color: #6b7c75; font-size: 0.85rem; cursor: pointer;
+          color: #6b7c75; font-size: 0.85rem; cursor: pointer; text-decoration: underline;
         }
       </style>
       <div class="modal-card">
         <div class="modal-icon"><i class="bi bi-lock-fill"></i></div>
         <h3>Login Required</h3>
-        <p>Please sign in first to access this page and continue your interview preparation.</p>
+        <p>Please sign in to access this page and practice your mock interview.</p>
         <a href="${loginPath()}" class="btn-login">Sign In / Sign Up</a>
-        <button type="button" class="btn-close-modal" id="popupCloseBtn">Maybe later</button>
+        <a href="${homePath()}" class="btn-close-modal">Return to Home</a>
       </div>
     `;
     document.body.appendChild(overlay);
-    document.getElementById('popupCloseBtn').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  }
+
+  const LOCAL_USER_KEYS = [
+    'mm_session', 'ipa_user', 'ipa_resume', 'ipa_job', 'ipa_match', 'ipa_sessions', 'ipa_progress',
+    'mm_credits', 'mm_credits_history', 'mm_redeemed', 'mm_user_progress'
+  ];
+
+  function wipeLocal() {
+    try {
+      LOCAL_USER_KEYS.forEach((k) => localStorage.removeItem(k));
+      const rm = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && /^sb-.+-auth-token/.test(k)) rm.push(k);
+      }
+      rm.forEach((k) => localStorage.removeItem(k));
+    } catch (_) {}
   }
 
   function logout() {
+    const go = () => { wipeLocal(); window.location.href = loginPath(); };
     try {
-      if (window.DB && typeof DB.clearSession === 'function') DB.clearSession();
+      if (window.DB && typeof DB.signOut === 'function') {
+        DB.signOut().then(go, go);
+        return;
+      }
     } catch (_) {}
-    localStorage.removeItem('mm_session');
-    localStorage.removeItem('ipa_user');
-    try {
-      if (window.STORAGE_KEYS && STORAGE_KEYS.user) localStorage.removeItem(STORAGE_KEYS.user);
-    } catch (_) {}
-    window.location.href = loginPath();
+    go();
   }
-
   function bindLogoutButtons() {
     document.querySelectorAll('#logoutBtn, #drawerLogout, [data-logout], .logout-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
@@ -117,6 +151,11 @@
     const page = currentPage();
     if (!PUBLIC.includes(page) && !isLoggedIn()) {
       showLoginPopup();
+    } else if (!PUBLIC.includes(page) && window.DB && typeof DB.verifySession === 'function') {
+      // Token may have expired / been revoked (e.g. account deleted elsewhere)
+      DB.verifySession().then((ok) => {
+        if (!ok) { wipeLocal(); showLoginPopup(); }
+      });
     }
     bindLogoutButtons();
   });

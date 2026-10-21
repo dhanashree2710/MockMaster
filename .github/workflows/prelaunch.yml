@@ -1,0 +1,20 @@
+# Runs the MockMaster launch audit automatically on every push / pull request.
+# Day to day it tolerates unfilled placeholders (WARN). Before a release, run locally WITHOUT
+# --allow-placeholders:  python3 scripts/prelaunch_check.py   (must end with "0 fail")
+name: prelaunch-check
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pillow
+      - name: Launch audit
+        run: python3 scripts/prelaunch_check.py --allow-placeholders

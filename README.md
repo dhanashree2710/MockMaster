@@ -74,7 +74,8 @@ Resume   Job Details  Skills
 - Interview history and progress
 - Final evaluation report
 - Responsive UI (desktop sidebar / mobile-friendly)
-- Demo mode via localStorage (no backend required to try the flow)
+- Secure accounts (Supabase Auth), per-user data isolation (RLS), in-app account deletion
+- AI via a server-side proxy (Supabase Edge Function) — no API key inside the app
 
 ---
 
@@ -85,8 +86,9 @@ Resume   Job Details  Skills
 | Frontend    | HTML5, CSS3, Vanilla JavaScript              |
 | UI          | Bootstrap 5.3, Bootstrap Icons, Inter font   |
 | Auth UI     | Custom cinematic sliding panel (no React)    |
-| State       | localStorage (demo) → ready for real API     |
-| Backend     | Optional (Firebase / custom API endpoints)   |
+| Auth / DB   | Supabase Auth + Postgres with Row Level Security |
+| AI          | Supabase Edge Function → Groq (key is a server secret) |
+| Android     | PWA wrapped as a Trusted Web Activity (Bubblewrap) |
 
 **No React, Vue, Angular, or build step required** for the UI shell.
 
@@ -133,60 +135,21 @@ interview-pro-ai/
 
 ---
 
-## How to run
+## How to run locally
 
 ```bash
-cd interview-pro-ai
-
-# Option 1
-python -m http.server 8080
-
-# Option 2
-npx serve .
-
-# Open http://localhost:8080
+python3 -m http.server 8080      # or: npx serve .
+# open http://localhost:8080
 ```
 
-Or open `index.html` / `pages/login.html` directly in a modern browser.
+You need a Supabase project to sign in — follow **[SUPABASE_SETUP.md](SUPABASE_SETUP.md)**.
+AI questions need the Edge Function — follow **[OPENAI_SETUP.md](OPENAI_SETUP.md)**
+(without it the app falls back to built-in question banks).
 
-**Standalone login demo:** use `login.html` + `mockmaster-logo.png` in the same folder.
+## Shipping to Google Play
 
----
-
-## Demo path (success path)
-
-1. Open app → **Get Started** / go to Login  
-2. **Sign Up** or **Sign In** (demo accepts any valid-looking credentials)  
-3. **Upload Resume** → Analyze (mock AI)  
-4. Paste **Job Description** → Analyze  
-5. Review **Match Score** & skill gaps  
-6. Start **Personalized Preparation**  
-7. Start **AI Mock Interview** → answer questions  
-8. View **Final AI Report**
-
-After a successful signup attempt in the login UI, a success overlay appears and the user can continue into the app flow (dashboard / resume upload).
-
----
-
-## Connecting a real backend / AI API
-
-1. Set `APP_CONFIG.apiBase` in `assets/js/config.js`  
-2. Replace mock delays with `fetch()` to your API  
-3. Keep existing UI states (loading, scores, chat bubbles)  
-4. **Never** put secret API keys in frontend code — proxy via backend  
-
-Suggested endpoints:
-
-```
-POST /api/auth/register
-POST /api/auth/login
-POST /api/resume/analyze
-POST /api/job/analyze
-POST /api/match
-POST /api/interview/start
-POST /api/interview/answer
-POST /api/interview/report
-```
+See **[PLAY_STORE_LAUNCH.md](PLAY_STORE_LAUNCH.md)** (checklist + what is still manual)
+and **[store-listing.md](store-listing.md)** (copy for the Play Console forms).
 
 ---
 
@@ -208,7 +171,7 @@ POST /api/interview/report
 - Realistic AI mock interviews with evaluation  
 - Final scored report with actionable feedback  
 - Premium auth experience and fully responsive UI  
-- Works in demo mode offline; production-ready API hooks  
+- Accounts, data and AI calls secured server-side  
 
 ---
 
@@ -218,15 +181,7 @@ Built for educational and product development use.
 
 ---
 
-## OpenAI / AI Integration (v1.1)
+## AI integration
 
-See **[OPENAI_SETUP.md](OPENAI_SETUP.md)** for:
-
-- Where to put the OpenAI API key (client vs backend)
-- How AI questions + ideal answers are generated
-- Speech recognition fixes (word repetition)
-- Indian-accent tutor voice settings
-- Session PDF report with ideal answers
-
-**Security:** Never commit a real OpenAI key. Prefer a backend proxy (`apiBase`).
-
+See **[OPENAI_SETUP.md](OPENAI_SETUP.md)**. Keys live only on the server (Edge Function secret).
+Never put a real API key in any file in this repo.
