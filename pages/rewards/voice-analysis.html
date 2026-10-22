@@ -32,8 +32,8 @@
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
     const out = document.getElementById('out');
-    if (!Utils.getRedeemed().includes('voiceReplay')) {
-      out.innerHTML = '<div class="card-app"><div class="card-body"><p>Redeem <strong>Live AI Voice Tone & Pace Replay</strong> (50 credits) to unlock — includes ₹12 prize.</p><a href="../rewards.html" class="btn-primary-app">Rewards</a></div></div>';
+    if (!Utils.requireReward('voiceReplay', out)) {
+      /* locked: unlock card rendered */
     } else {
       function findBestReport() {
         try {
@@ -46,7 +46,7 @@
           if (hit) return hit;
         } catch (_) {}
         try {
-          const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+          const sessions = (Utils.getRealSessions && Utils.getRealSessions()) || [];
           const s = sessions.find(x => x && (x.answers || []).length);
           if (s) return { answers: s.answers, duration: s.duration, overallScore: s.score, setup: s.setup || { position: s.position } };
         } catch (_) {}
@@ -55,7 +55,7 @@
       const report = findBestReport();
       const answers = (report && report.answers) || [];
       if (!answers.length) {
-        out.innerHTML = '<div class="card-app"><div class="card-body">Complete an interview first (use the mic for best signal), then return here.</div></div>';
+        out.innerHTML = '<div class="card-app"><div class="card-body"><p>Complete a mock interview first (use the mic for the best signal), then return here.</p><a class="btn-primary-app" href="../interview/interview-setup.html">Start interview</a></div></div>';
       } else {
         const text = answers.map(a => a.answer || '').join(' ');
         const words = text.trim().split(/\s+/).filter(Boolean);

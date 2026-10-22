@@ -2,7 +2,7 @@
  * Auth Guard — Login required popup + session helpers (Supabase / localStorage)
  */
 (function () {
-  const PUBLIC = ['index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'reset-password.html', 'forgot-password.html', ''];
+  const PUBLIC = ['index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html', ''];
 
   function currentPage() {
     return (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();

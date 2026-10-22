@@ -3,7 +3,7 @@
  * - Static assets + approved CDN libraries/fonts: stale-while-revalidate
  * - Supabase / AI / any other origin: never cached (always network)
  */
-const CACHE = 'mockmaster-v3.1';
+const CACHE = 'mockmaster-v3.2';
 const PRECACHE = [
   './',
   './index.html',

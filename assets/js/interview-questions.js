@@ -356,13 +356,74 @@
     try { sessionStorage.removeItem('mm_q_seed'); } catch (_) {}
   }
 
+  function usedKeyFor(position) {
+    return 'mm_used_questions_' + String(position || 'general').toLowerCase().replace(/[*_`#]+/g, '').trim().slice(0, 80).replace(/\W+/g, '_');
+  }
+  const USED_GLOBAL_KEY = 'mm_used_questions_all';
+
+  /** Questions asked before: this job first, then recent ones from ANY interview (most recent first). */
   function getUsedQuestionsForJob(position) {
+    function read(k) { try { return JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (_) { return []; } }
+    const own = read(usedKeyFor(position));
+    const all = read(USED_GLOBAL_KEY).slice(0, 60);
+    const seen = {};
+    return own.concat(all).filter(function (q) {
+      const k = String(q || '').slice(0, 160);
+      if (!k || seen[k]) return false;
+      seen[k] = true;
+      return true;
+    });
+  }
+
+  /** Remember questions so the next attempt for the same job gets different ones. */
+  function markQuestionsUsed(position, list) {
     try {
-      const jobKey = String(position || 'general').toLowerCase().slice(0, 80).replace(/\W+/g, '_');
-      return JSON.parse(localStorage.getItem('mm_used_questions_' + jobKey) || '[]');
-    } catch (_) {
-      return [];
+      const texts = (list || []).map(function (q) { return String((q && q.question) || q || '').trim().slice(0, 300); }).filter(Boolean);
+      if (!texts.length) return;
+      function merge(k, cap) {
+        let prev = [];
+        try { prev = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (_) {}
+        const merged = texts.concat(prev).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).slice(0, cap);
+        localStorage.setItem(k, JSON.stringify(merged));
+      }
+      merge(usedKeyFor(position), 120);
+      merge(USED_GLOBAL_KEY, 200);
+    } catch (_) {}
+  }
+
+  function normQ(t) { return String(t || '').toLowerCase().replace(/\W+/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+  /** Index in the used list (0 = asked most recently) or -1 when never asked. */
+  function usedIndex(q, used) {
+    if (!used || !used.length) return -1;
+    const nq = normQ(q);
+    for (let i = 0; i < used.length; i++) {
+      const nu = normQ(used[i]);
+      if (!nu) continue;
+      if (nq === nu) return i;
+      if (nu.length >= 60 && (nq.indexOf(nu.slice(0, 100)) === 0 || nu.indexOf(nq.slice(0, 100)) === 0)) return i;
+      if (isTooSimilar(q, used[i])) return i;
     }
+    return -1;
+  }
+
+  /**
+   * Pick n questions: never-asked first (shuffled per interview), then the ones asked LONGEST ago.
+   * This is what stops the same questions coming back on every attempt.
+   */
+  function pickFresh(pool, used, n) {
+    const uniq = (pool || []).filter(function (q, i, a) { return q && a.indexOf(q) === i; });
+    const fresh = [], old = [];
+    uniq.forEach(function (q) {
+      const ix = usedIndex(q, used);
+      if (ix < 0) fresh.push(q); else old.push({ q: q, ix: ix });
+    });
+    const out = take(fresh, n);
+    if (out.length < n) {
+      old.sort(function (x, y) { return y.ix - x.ix; });      // oldest-asked first
+      old.forEach(function (o) { if (out.length < n) out.push(o.q); });
+    }
+    return out;
   }
 
   function isTooSimilar(a, b) {
@@ -381,10 +442,7 @@
 
   function filterUnused(pool, used) {
     if (!pool || !pool.length) return [];
-    if (!used || !used.length) return pool.slice();
-    const fresh = pool.filter(q => !used.some(u => isTooSimilar(q, u)));
-    // If we filtered too aggressively, fall back to full pool so interviews still work
-    return fresh.length >= Math.min(3, pool.length) ? fresh : pool.slice();
+    return pickFresh(pool, used, pool.length);
   }
 
   /** Skill → realistic interview question templates (JD / resume driven) */
@@ -480,16 +538,26 @@
     return n.split(' ')[0] || n;
   }
 
+  const SKILL_ANGLES = [
+    function (l, p) { return 'This role requires ' + l + '. Tell me about a project or task where you used ' + l + ', and what the outcome was.'; },
+    function (l, p) { return 'How would you apply ' + l + ' day-to-day in a ' + p + ' role? Give a concrete example.'; },
+    function (l, p) { return 'What are the most common mistakes people make with ' + l + ', and how do you avoid them?'; },
+    function (l, p) { return 'How would you explain ' + l + ' to a non-technical stakeholder who needs to make a decision based on your work?'; },
+    function (l, p) { return 'Describe a time ' + l + ' did not work the way you expected. How did you troubleshoot it?'; },
+    function (l, p) { return 'How do you check that your ' + l + ' work is accurate and reliable before sharing it with others?'; },
+    function (l, p) { return 'What is one advanced or lesser-known feature of ' + l + ' you have used, and why did it help?'; },
+    function (l, p) { return 'If you had to teach ' + l + ' to a new teammate in one week, what would your plan be?'; },
+    function (l, p) { return 'Compare ' + l + ' with an alternative you have used. When would you choose each for a ' + p + ' task?'; },
+    function (l, p) { return 'How have you improved the speed, quality or cost of a task by using ' + l + '? What was the measurable result?'; }
+  ];
+
   function questionsForSkill(skill, position) {
     const key = skillKey(skill);
     const templates = SKILL_Q[key];
-    if (templates && templates.length) return templates.slice();
     const label = String(skill).trim();
-    if (!label || label.length < 2) return [];
-    return [
-      'This role requires ' + label + '. Tell me about a project or task where you used ' + label + ', and what the outcome was.',
-      'How would you apply ' + label + ' day-to-day in a ' + position + ' role? Give a concrete example.'
-    ];
+    const base = (templates && templates.length) ? templates.slice() : [];
+    if (!label || label.length < 2) return base;
+    return base.concat(SKILL_ANGLES.map(function (f) { return f(label, position); }));
   }
 
   function collectJobSkills(job) {
@@ -582,26 +650,40 @@
       questions.push(Object.assign({ id: id++ }, meta, { question: text }));
     }
 
-    // 1) Company-style intro
+    // 1) Company-style intro (rotating wording so attempts do not start identically)
     const companyBit = company ? (' at ' + company) : '';
-    push(
+    function variant(list, meta) {
+      const pick = pickFresh(list, usedQs, 1)[0];
+      if (pick) push(pick, meta);
+    }
+    variant([
       'Hello ' + name + ', thank you for joining us today. I am conducting this interview for the ' + position + ' position' + companyBit + '. Please introduce yourself and walk me through your background, focusing on experience relevant to this role.',
-      { type: 'intro', level: 'basic', domain: domain }
-    );
+      'Welcome ' + name + '! Let us begin with a quick introduction. Tell me about yourself and what led you to apply for the ' + position + ' role' + companyBit + '.',
+      'Good to meet you, ' + name + '. To start, could you give me a short overview of your journey so far and why the ' + position + ' position' + companyBit + ' interests you?',
+      'Hi ' + name + ', thanks for making the time. Walk me through your career or studies so far, and highlight the parts that make you a fit for this ' + position + ' role.',
+      'Let us start with you, ' + name + '. Who are you professionally, what are you strongest at, and why are you targeting a ' + position + ' position?',
+      'Hello ' + name + '. Before we go into details, please tell me about yourself in two minutes: background, key skills, and what you want next as a ' + position + '.'
+    ], { type: 'intro', level: 'basic', domain: domain });
 
     // 2) Resume bridge
     if (exp0 && questions.length < num) {
-      push(
-        'I see on your resume you worked as ' + exp0.role + (exp0.company ? ' at ' + exp0.company : '') + (exp0.duration ? ' (' + exp0.duration + ')' : '') + '. How does that experience prepare you for a ' + position + ' role' + companyBit + '?',
-        { type: 'resume', level: 'basic', domain: domain }
-      );
+      const where = exp0.role + (exp0.company ? ' at ' + exp0.company : '') + (exp0.duration ? ' (' + exp0.duration + ')' : '');
+      variant([
+        'I see on your resume you worked as ' + where + '. How does that experience prepare you for a ' + position + ' role' + companyBit + '?',
+        'Your resume mentions ' + where + '. What was your biggest achievement there, and how does it apply to this ' + position + ' position?',
+        'Tell me more about your time as ' + where + '. Which responsibilities from that job are most relevant to this ' + position + ' role?',
+        'Looking at your experience as ' + where + ', what did you learn there that you would bring to our team?'
+      ], { type: 'resume', level: 'basic', domain: domain });
     }
     if (projects.length && questions.length < num) {
-      const proj = projects[0];
-      push(
-        'You listed a project called "' + proj.name + '"' + (proj.tech ? ' using ' + proj.tech : '') + '. Walk me through your role, the problem you solved, and the result.',
-        { type: 'project', level: 'intermediate', domain: domain }
-      );
+      const projList = [];
+      projects.slice(0, 4).forEach(function (proj) {
+        const withTech = proj.tech ? ' using ' + proj.tech : '';
+        projList.push('You listed a project called "' + proj.name + '"' + withTech + '. Walk me through your role, the problem you solved, and the result.');
+        projList.push('Tell me about the "' + proj.name + '" project' + withTech + '. What was the hardest part, and how did you handle it?');
+        projList.push('In your "' + proj.name + '" project, what would you do differently if you rebuilt it today?');
+      });
+      variant(projList, { type: 'project', level: 'intermediate', domain: domain });
     }
 
     // 3) JD + resume skill questions (majority of interview)
@@ -617,7 +699,7 @@
     skillOrder.forEach(function (sk) {
       questionsForSkill(sk, position).forEach(function (q) { skillPool.push(q); });
     });
-    take(filterUnused(skillPool, usedQs), skillQBudget + 4).forEach(function (q) {
+    pickFresh(skillPool, usedQs, skillQBudget + 4).forEach(function (q) {
       if (skillQCount >= skillQBudget) return;
       push(q, { type: 'technical', level: difficulty === 'easy' ? 'basic' : 'intermediate', domain: domain });
       skillQCount++;
@@ -625,69 +707,84 @@
 
     // 4) JD responsibility scenario
     if (responsibilities.length && questions.length < num - 1) {
-      const r = responsibilities[Math.floor(Math.random() * responsibilities.length)];
-      push(
-        'One of the responsibilities for this ' + position + ' role is: "' + r.slice(0, 160) + '". How would you approach this in your first 90 days?',
-        { type: 'scenario', level: 'advanced', domain: domain }
-      );
+      const scnList = [];
+      responsibilities.forEach(function (r) {
+        const t = r.slice(0, 160);
+        scnList.push('One of the responsibilities for this ' + position + ' role is: "' + t + '". How would you approach this in your first 90 days?');
+        scnList.push('The job description says: "' + t + '". Describe a similar task you have handled and how you would do it here.');
+        scnList.push('Imagine you are given this responsibility on day one: "' + t + '". What questions would you ask and what would be your plan?');
+      });
+      variant(scnList, { type: 'scenario', level: 'advanced', domain: domain });
     } else if (jobSkills.length && questions.length < num - 1) {
-      push(
+      variant([
         'Looking at this ' + position + ' job description, which of your past projects best matches what we need, and why?',
-        { type: 'job', level: 'intermediate', domain: domain }
-      );
+        'Which requirement in this ' + position + ' job description are you strongest at, and can you prove it with an example?',
+        'If you joined as our ' + position + ', what would you deliver in the first month to show you were the right hire?'
+      ], { type: 'job', level: 'intermediate', domain: domain });
     }
 
     // 5) Skill gap
     if (missing.length && questions.length < num - 1) {
-      push(
-        'This ' + position + ' role emphasizes ' + missing.slice(0, 3).join(', ') + '. How would you ramp up on ' + missing[0] + ' quickly if you joined us?',
-        { type: 'gap', level: 'intermediate', domain: domain }
-      );
+      const m = missing.slice(0, 3).join(', ');
+      variant([
+        'This ' + position + ' role emphasizes ' + m + '. How would you ramp up on ' + missing[0] + ' quickly if you joined us?',
+        'I do not see ' + missing[0] + ' clearly on your resume, but this ' + position + ' job needs it. How would you close that gap?',
+        'Which of ' + m + ' are you least experienced in, and what is your plan to become productive with it within a month?'
+      ], { type: 'gap', level: 'intermediate', domain: domain });
     }
 
     // 6) Light domain bank only if still short
     if (wantTech && questions.length < num - 2) {
       const need = Math.min(2, num - questions.length - 2);
-      const pool = filterUnused([].concat(bank.intermediate || [], bank.practical || [], bank.basic || []), usedQs);
-      take(pool, need).forEach(function (q) {
+      const pool = [].concat(bank.intermediate || [], bank.practical || [], bank.basic || []);
+      pickFresh(pool, usedQs, need).forEach(function (q) {
         push(q, { type: 'technical', level: 'intermediate', domain: domain });
       });
     }
     if (wantCoding && questions.length < num - 2 && (bank.coding || []).length) {
-      take(filterUnused(bank.coding, usedQs), 1).forEach(function (q) {
+      pickFresh(bank.coding, usedQs, 1).forEach(function (q) {
         push(q, { type: 'coding', level: 'intermediate', domain: domain });
       });
     }
 
     // 7) Behavioral + motivation
     if (wantHr && questions.length < num) {
-      const behPool = filterUnused([
+      const behPool = pickFresh([
         'Tell me about a challenging situation at work and how you handled it.',
         'Describe a time you had to meet a tight deadline. What did you prioritize?',
         'Give an example of when you worked with a difficult stakeholder or teammate.',
-        'Tell me about a mistake you made and what you learned from it.'
-      ].concat(typeof BEHAVIORAL !== 'undefined' ? BEHAVIORAL : []), usedQs);
+        'Tell me about a mistake you made and what you learned from it.',
+        'Describe a time you received critical feedback. What did you change afterwards?',
+        'Tell me about a time you had to learn something new very quickly to finish a task.',
+        'Describe a situation where you had to persuade others to accept your idea.',
+        'Give an example of when you took initiative without being asked.'
+      ].concat(typeof BEHAVIORAL !== 'undefined' ? BEHAVIORAL : []), usedQs, 1);
       if (behPool.length) push(behPool[0], { type: 'behavioral', level: 'intermediate', domain: domain });
 
       const hrVariants = [
         'Why are you interested in this ' + position + ' role' + companyBit + ', and why should we hire you?',
         'What draws you to this ' + position + ' opportunity, and what unique value would you bring in the first 6 months?',
-        'How does this ' + position + ' role fit your career goals over the next 2–3 years?'
+        'How does this ' + position + ' role fit your career goals over the next 2–3 years?',
+        'Where do you see yourself growing if you join us as a ' + position + ', and what do you want to learn first?',
+        'What are you looking for in your next role, and how does this ' + position + ' position match it?'
       ];
-      const hrFresh = filterUnused(hrVariants, usedQs);
+      const hrFresh = pickFresh(hrVariants, usedQs, 1);
       push(hrFresh[0] || hrVariants[0], { type: 'hr', level: 'basic', domain: domain });
     }
 
     // 8) Closing
-    push(
+    variant([
       'We are almost at the end. Do you have any questions for me about the ' + position + ' role, the team, or next steps in the process?',
-      { type: 'closing', level: 'basic', domain: domain }
-    );
+      'Before we wrap up, what questions do you have about the ' + position + ' position, our work culture, or what success looks like here?',
+      'That brings us to the end of my questions. Is there anything about the ' + position + ' role or the next steps that you would like to ask me?',
+      'Thank you for your answers. Is there anything you would like to add about yourself, or any question you have for me about this role?'
+    ], { type: 'closing', level: 'basic', domain: domain });
 
     // Fill remaining from skill pool / domain bank
-    const filler = filterUnused(
+    const filler = pickFresh(
       skillPool.concat(bank.basic || [], bank.intermediate || [], bank.practical || []),
-      usedQs.concat(questions.map(function (q) { return q.question; }))
+      questions.map(function (q) { return q.question; }).concat(usedQs),
+      40
     );
     var fi = 0;
     while (questions.length < num && filler.length && fi < filler.length * 2) {
@@ -695,7 +792,11 @@
       fi++;
     }
 
-    // Intro must stay first
+    // Closing must stay last, intro first
+    const closeIdx = questions.findIndex(function (q) { return q.type === 'closing'; });
+    if (closeIdx !== -1 && closeIdx !== questions.length - 1) {
+      questions.push(questions.splice(closeIdx, 1)[0]);
+    }
     const introIdx = questions.findIndex(function (q) { return q.type === 'intro'; });
     if (introIdx > 0) {
       const intro = questions.splice(introIdx, 1)[0];
@@ -956,5 +1057,6 @@
   }
 
   window.InterviewQuestions = { buildInterviewQuestions,
-    resetQuestionSeed, detectDomain, getModelAnswer };
+    resetQuestionSeed, detectDomain, getModelAnswer,
+    markQuestionsUsed, getUsedQuestionsForJob, usedIndex, pickFresh };
 })();

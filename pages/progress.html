@@ -152,7 +152,7 @@
   <script src="../assets/js/utils.js"></script>
   <script>
     document.getElementById('navCredits').textContent = Utils.getCredits();
-    const sessions = (Utils.getStored(STORAGE_KEYS.sessions, []) || []).slice().reverse();
+    const sessions = Utils.getRealSessions().slice().reverse();
     const scores = sessions.map(s => {
       let sc = Number(s.score) || 0;
       if ((!sc || sc === 0) && (s.answers || []).length) {
@@ -239,15 +239,21 @@
     if (!sessions.length) {
       recent.innerHTML = '<p class="text-muted small mb-0">No sessions yet.</p>';
     } else {
-      recent.innerHTML = sessions.slice().reverse().slice(0, 6).map(s => `
+      recent.innerHTML = sessions.slice().reverse().slice(0, 6).map(s => {
+        let sc = Number(s.score) || 0;
+        if ((!sc || sc === 0) && (s.answers || []).length) {
+          const sum = s.answers.reduce((a, b) => a + (Number(b.score) || 0), 0);
+          if (sum > 0) sc = Math.round(sum / s.answers.length);
+        }
+        return `
         <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color:var(--border)!important;">
           <div>
             <div class="fw-semibold small">${esc(s.position || 'Interview')}</div>
             <div class="text-muted" style="font-size:0.75rem;">${Utils.formatDate(s.date)}</div>
           </div>
-          <div class="fw-bold" style="color:${Utils.scoreColor(s.score)}">${s.score}%</div>
-        </div>
-      `).join('');
+          <div class="fw-bold" style="color:${Utils.scoreColor(sc)}">${sc}%</div>
+        </div>`;
+      }).join('');
     }
   </script>
   <script src="../assets/js/auth-guard.js"></script>

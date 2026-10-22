@@ -148,7 +148,189 @@ Utils.markRedeemed = function (id) {
   if (!list.includes(id)) {
     list.push(id);
     this.setStored(REDEEMED_KEY, list);
+    try { if (window.DB && DB.syncRedeemedToCloud) DB.syncRedeemedToCloud(list); } catch (_) {}
   }
+};
+
+/* ---- Rewards catalog (single source of truth) ----
+ * priceInr = PRICE charged via Razorpay (₹). Minimum ₹9. Prices vary per reward.
+ * Payment: Razorpay Checkout (APP_CONFIG.razorpayKeyId). Credits are optional fallback only. */
+Utils.MIN_PRICE_INR = 9;
+Utils.REWARDS = [
+  { id: 'exec360', tag: 'Most Popular', tagClass: 'tag-popular', cost: 25, priceInr: 25,
+    title: 'Executive 360° AI Interview Breakdown',
+    desc: 'Line-by-line analysis of your last interview: presence, STAR structure and coaching notes for every answer.',
+    href: 'rewards/exec-360.html' },
+  { id: 'voiceReplay', tag: 'Audio AI', tagClass: 'tag-audio', cost: 15, priceInr: 15,
+    title: 'Live AI Voice Tone & Pace Replay',
+    desc: 'Speaking pace (WPM), filler-word detection and a confidence index from your last interview answers.',
+    href: 'rewards/voice-analysis.html' },
+  { id: 'atsOptimizer', tag: 'ATS · ₹9', tagClass: 'tag-ats', cost: 9, priceInr: 9,
+    title: 'AI Resume & ATS Alignment Optimizer',
+    desc: 'Match your resume to a job description and download an ATS-friendly version.',
+    href: 'rewards/ats-optimizer.html' },
+  { id: 'tier1Pack', tag: 'Premium Pack', tagClass: 'tag-pack', cost: 30, priceInr: 30,
+    title: 'Tier-1 Tech Insider Question Pack',
+    desc: 'Ten curated behavioral, system-design and technical questions in the style of top product companies, ready to practise as a mock interview.',
+    href: 'rewards/tier1-pack.html' }
+];
+Utils.getReward = function (id) { return Utils.REWARDS.find(function (r) { return r.id === id; }) || null; };
+/** Price charged to the user (₹). Always ≥ MIN_PRICE_INR. */
+Utils.rewardPrice = function (r) {
+  var p = Number(r && (r.priceInr != null ? r.priceInr : r.cost)) || 0;
+  return Math.max(Utils.MIN_PRICE_INR, p);
+};
+Utils.rewardPrize = function (r) { return Utils.rewardPrice(r); };
+Utils.MIN_PRIZE_INR = Utils.MIN_PRICE_INR;
+
+Utils.getRazorpayKey = function () {
+  try {
+    var c = window.APP_CONFIG || {};
+    return (c.razorpayKeyId || '').trim();
+  } catch (_) { return ''; }
+};
+
+/** Load Razorpay Checkout script once. */
+Utils.loadRazorpay = function () {
+  return new Promise(function (resolve, reject) {
+    if (window.Razorpay) return resolve(window.Razorpay);
+    var s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.async = true;
+    s.onload = function () { resolve(window.Razorpay); };
+    s.onerror = function () { reject(new Error('Could not load Razorpay. Check your network.')); };
+    document.head.appendChild(s);
+  });
+};
+
+/**
+ * Open Razorpay Checkout for a reward. Amount in ₹ (converted to paise).
+ * Resolves { ok, paymentId, reward, price } on success; { ok:false, cancelled|error } otherwise.
+ */
+Utils.payWithRazorpay = function (rewardId) {
+  var r = Utils.getReward(rewardId);
+  if (!r) return Promise.resolve({ ok: false, error: 'Unknown reward.' });
+  if (Utils.getRedeemed().includes(rewardId)) {
+    return Promise.resolve({ ok: true, already: true, reward: r, price: 0 });
+  }
+  var price = Utils.rewardPrice(r);
+  var key = Utils.getRazorpayKey();
+  if (!key) {
+    return Promise.resolve({ ok: false, error: 'Payment not configured. Razorpay Key ID missing.' });
+  }
+
+  var user = {};
+  try { user = Utils.getUser() || {}; } catch (_) {}
+
+  return Utils.loadRazorpay().then(function (Razorpay) {
+    return new Promise(function (resolve) {
+      var options = {
+        key: key,
+        amount: Math.round(price * 100), // paise
+        currency: (window.APP_CONFIG && APP_CONFIG.razorpayCurrency) || 'INR',
+        name: (window.APP_CONFIG && (APP_CONFIG.companyName || APP_CONFIG.name)) || 'MockMaster',
+        description: r.title + ' — ₹' + price,
+        image: '../assets/images/icon-192.png',
+        prefill: {
+          name: user.name || '',
+          email: user.email || '',
+          contact: ''
+        },
+        notes: {
+          reward_id: r.id,
+          product: r.title
+        },
+        theme: { color: '#2B5748' },
+        modal: {
+          ondismiss: function () {
+            resolve({ ok: false, cancelled: true, error: 'Payment cancelled.' });
+          }
+        },
+        handler: function (response) {
+          // Payment success — unlock reward
+          Utils.markRedeemed(r.id);
+          try {
+            var purchases = JSON.parse(localStorage.getItem('mm_purchases') || '[]');
+            purchases.unshift({
+              id: r.id,
+              title: r.title,
+              inr: price,
+              paymentId: response.razorpay_payment_id || '',
+              at: new Date().toISOString(),
+              method: 'razorpay'
+            });
+            localStorage.setItem('mm_purchases', JSON.stringify(purchases.slice(0, 50)));
+          } catch (_) {}
+          resolve({
+            ok: true,
+            reward: r,
+            price: price,
+            paymentId: response.razorpay_payment_id || ''
+          });
+        }
+      };
+      try {
+        var rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (resp) {
+          var msg = (resp && resp.error && (resp.error.description || resp.error.reason)) || 'Payment failed.';
+          resolve({ ok: false, error: msg });
+        });
+        rzp.open();
+      } catch (err) {
+        resolve({ ok: false, error: (err && err.message) || 'Could not open payment.' });
+      }
+    });
+  }).catch(function (err) {
+    return { ok: false, error: (err && err.message) || 'Razorpay load failed.' };
+  });
+};
+
+/**
+ * Unlock via Razorpay (preferred). Falls back to credits only if Razorpay key is missing.
+ */
+Utils.redeemReward = function (id) {
+  var r = Utils.getReward(id);
+  if (!r) return { ok: false, error: 'Unknown reward.' };
+  if (Utils.getRedeemed().includes(id)) return { ok: true, already: true, reward: r, price: 0 };
+
+  // Sync path used only when caller cannot await — prefer payWithRazorpay from UI
+  if (Utils.getRazorpayKey()) {
+    return { ok: false, async: true, error: 'Use payWithRazorpay for paid unlock.' };
+  }
+
+  var price = Utils.rewardPrice(r);
+  if (price > 0 && !Utils.spendCredits(price, 'Purchased: ' + r.title + ' · ₹' + price)) {
+    return { ok: false, error: 'Not enough credits (₹' + price + ' needed).' };
+  }
+  Utils.markRedeemed(id);
+  try {
+    var purchases = JSON.parse(localStorage.getItem('mm_purchases') || '[]');
+    purchases.unshift({ id: r.id, title: r.title, inr: price, at: new Date().toISOString(), method: 'credits' });
+    localStorage.setItem('mm_purchases', JSON.stringify(purchases.slice(0, 50)));
+  } catch (_) {}
+  return { ok: true, reward: r, price: price };
+};
+
+/** Gate for reward pages: returns true if unlocked, else renders a "pay to unlock" card. */
+Utils.requireReward = function (id, el, base) {
+  if (Utils.getRedeemed().includes(id)) return true;
+  var r = Utils.getReward(id);
+  if (el && r) {
+    var price = Utils.rewardPrice(r);
+    el.innerHTML = '<div class="card-app"><div class="card-body"><p class="mb-2">Unlock <strong>' + r.title + '</strong> for ' +
+      '<strong>₹' + price + '</strong>.</p>' +
+      '<p class="text-muted small mb-3">Pay securely with UPI, card, or netbanking via Razorpay.</p>' +
+      '<a href="' + (base || '../') + 'rewards.html" class="btn-primary-app">Go to Rewards &amp; Pay</a></div></div>';
+  }
+  return false;
+};
+
+/** Only real interviews (with answers). Also removes empty 0% rows left behind by older versions. */
+Utils.getRealSessions = function () {
+  var all = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+  var real = all.filter(function (x) { return x && ((x.answers || []).length || Number(x.score) > 0); });
+  if (real.length !== all.length) Utils.setStored(STORAGE_KEYS.sessions, real);
+  return real;
 };
 
 window.CREDITS_KEY = CREDITS_KEY;

@@ -245,23 +245,56 @@
       } catch (_) {}
     }
     if (report) {
-      // Prefer computed average from answers when overall is missing/zero but answers have scores
+      // Always prefer average of per-answer scores when available (fixes 0% after real interviews)
       let score = Number(report.overallScore);
       const ans = report.answers || [];
-      if ((!score || score === 0) && ans.length) {
+      if (ans.length) {
         const sum = ans.reduce((a, b) => a + (Number(b.score) || 0), 0);
-        if (sum > 0) score = Math.round(sum / ans.length);
+        const avg = Math.round(sum / ans.length);
+        if (avg > 0 && (!score || score === 0 || Math.abs(score - avg) > 25)) score = avg;
+        if ((!score || score === 0) && sum === 0) {
+          // Fallback from answer length so a real session never shows pure 0
+          const withText = ans.filter(a => String(a.answer || '').trim().length > 5);
+          if (withText.length) {
+            score = Math.max(25, Math.round(
+              withText.reduce((a, b) => a + Math.min(70, 20 + String(b.answer || '').split(/\s+/).length), 0) / withText.length
+            ));
+          }
+        }
       }
       if (score == null || isNaN(score)) score = 0;
+      score = Math.max(0, Math.min(100, Math.round(score)));
       document.getElementById('overallScore').textContent = score;
       document.getElementById('overallCircle').style.setProperty('--score', score);
       document.getElementById('readiness').textContent = Utils.readinessLabel(score);
       document.getElementById('reportMeta').textContent = `${report.setup?.position || 'Interview'} · ${report.setup?.difficulty || 'Medium'} · ${Math.floor((report.duration||0)/60)}m ${(report.duration||0)%60}s`;
-      document.getElementById('techScore').textContent = Math.max(0, Math.min(100, score + 2)) + '%';
-      document.getElementById('commScore').textContent = Math.max(0, Math.min(100, score - 3)) + '%';
-      document.getElementById('psScore').textContent = Math.max(0, Math.min(100, score + 4)) + '%';
-      document.getElementById('confScore').textContent = Math.max(0, Math.min(100, score - 6)) + '%';
-      document.getElementById('jobScore').textContent = Math.max(0, Math.min(100, score + 7)) + '%';
+      // Category scores computed from the actual answers (fallback: derived from the overall score)
+      (function categoryScores() {
+        const clamp = n => Math.max(0, Math.min(100, Math.round(n)));
+        const avgOf = list => list.length ? list.reduce((a, b) => a + (Number(b.score) || 0), 0) / list.length : null;
+        const ofType = re => ans.filter(a => re.test(String(a.type || '')));
+        const words = a => String(a.answer || '').split(/\s+/).filter(Boolean).length;
+        const tech = avgOf(ofType(/technical|coding|system|domain/i));
+        const prob = avgOf(ofType(/scenario|coding|technical|gap|case/i));
+        const job  = avgOf(ofType(/resume|project|job|gap|hr|intro|closing/i));
+        // Communication: fuller answers with structure words score higher
+        let comm = null, conf = null;
+        if (ans.length) {
+          const avgWords = ans.reduce((a, b) => a + words(b), 0) / ans.length;
+          const structured = ans.filter(a => /for example|because|first|then|finally|result|so that|therefore|as a result/i.test(a.answer || '')).length / ans.length;
+          comm = clamp(35 + Math.min(35, avgWords * 1.1) + structured * 25);
+          const allText = ans.map(a => a.answer || '').join(' ').toLowerCase();
+          const total = Math.max(1, allText.split(/\s+/).length);
+          const hedges = (allText.match(/\b(um|uh|maybe|i think|i guess|not sure|kind of|sort of|probably)\b/g) || []).length;
+          conf = clamp(85 - (hedges / total) * 400 - (ans.filter(a => words(a) < 6).length / ans.length) * 30);
+        }
+        const set = (id, v, fallback) => { document.getElementById(id).textContent = clamp(v == null ? fallback : v) + '%'; };
+        set('techScore', tech, score + 2);
+        set('commScore', comm, score - 3);
+        set('psScore', prob, score + 4);
+        set('confScore', conf, score - 6);
+        set('jobScore', job, score + 7);
+      })();
 
       // Celebrate successful interview completion
       try {

@@ -225,13 +225,27 @@ const DB = {
   async login({ email, password }) {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
-    const { data, error } = await sb.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password
-    });
+    const em = email.trim().toLowerCase();
+    let { data, error } = await sb.auth.signInWithPassword({ email: em, password });
+    // Old accounts (created by the previous custom login) exist only in public.users.
+    // If the old password is right, the server creates the Auth account, then we sign in again.
+    if (error && /invalid login credentials/i.test(String(error.message || ''))) {
+      try {
+        const mig = await sb.rpc('migrate_legacy_login', { p_email: em, p_password: password });
+        if (mig && mig.data && mig.data.ok) {
+          ({ data, error } = await sb.auth.signInWithPassword({ email: em, password }));
+        }
+      } catch (_) {}
+    }
     if (error) {
-      if (/not confirmed/i.test(error.message)) throw new Error('Please confirm your email first — check your inbox.');
-      throw new Error('Invalid email or password');
+      const m = String(error.message || '');
+      if (/not confirmed/i.test(m)) throw new Error('Please confirm your email first — check your inbox.');
+      if (/invalid login credentials/i.test(m)) throw new Error('Invalid email or password. Forgot it? Use “Forgot password?”.');
+      if (/rate limit|too many|over_request/i.test(m) || error.status === 429) throw new Error('Too many attempts. Wait a few minutes and try again.');
+      if (/banned|disabled/i.test(m)) throw new Error('This account has been disabled.');
+      if (/fetch|network|failed to/i.test(m) || error.status === 0) throw new Error('Network problem. Check your connection and try again.');
+      console.warn('login error', error);
+      throw new Error(m || 'Sign in failed');
     }
     const au = data.user;
     let prof = null;
@@ -257,111 +271,23 @@ const DB = {
     return user;
   },
 
-  async resetPassword(email) {
+  /** Forgot password: email + new password only (see supabase/schema.sql) */
+  async resetPasswordByEmail({ email, password }) {
     if (this.ready) await this.ready(8000);
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
     const em = String(email || '').trim().toLowerCase();
-    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      throw new Error('Enter a valid email address');
-    }
-    // Always point to the dedicated reset page under /pages/
-    var redirectTo;
-    try {
-      var path = window.location.pathname || '';
-      if (/\/pages\//i.test(path)) {
-        redirectTo = new URL('reset-password.html', window.location.href).href;
-      } else {
-        redirectTo = new URL('pages/reset-password.html', window.location.origin + '/').href;
-      }
-    } catch (_) {
-      redirectTo = window.location.origin + '/pages/reset-password.html';
-    }
-    const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: redirectTo });
+    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) throw new Error('Enter a valid email address');
+    if (String(password || '').length < 8) throw new Error('Password must be at least 8 characters');
+    const { data, error } = await sb.rpc('reset_password_by_email', { p_email: em, p_password: String(password) });
     if (error) {
-      var msg = error.message || 'Could not send reset email';
-      // Friendlier hints for common Supabase config issues
-      if (/redirect/i.test(msg)) {
-        msg = 'Reset link could not be sent. Ask the admin to add this URL to Supabase Redirect URLs: ' + redirectTo;
+      if (/does not exist|schema cache/i.test(error.message || '')) {
+        throw new Error('Password reset is not set up yet. Run supabase/schema.sql in Supabase SQL Editor.');
       }
-      throw new Error(msg);
+      throw new Error(error.message || 'Could not reset password');
     }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Could not reset password');
     return true;
-  },
-
-
-  /**
-   * Forgot password (no email link): call Edge Function with email + new password.
-   * Requires supabase functions deploy reset-password --no-verify-jwt
-   */
-  async resetPasswordByEmail({ email, password }) {
-    const em = String(email || '').trim().toLowerCase();
-    const pw = String(password || '');
-    if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      throw new Error('Enter a valid email address');
-    }
-    if (pw.length < 8) throw new Error('Password must be at least 8 characters');
-
-    // Prefer same-origin host function (Netlify) — no Supabase CLI needed
-    var urls = [];
-    try {
-      if (location && location.origin) {
-        urls.push(location.origin + '/.netlify/functions/reset-password');
-        urls.push(location.origin + '/api/reset-password');
-      }
-    } catch (_) {}
-    try {
-      var cfg = (window.APP_CONFIG && APP_CONFIG.resetPasswordUrl) || '';
-      if (cfg) urls.push(cfg);
-    } catch (_) {}
-    try {
-      if (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) {
-        urls.push(String(SUPABASE_URL).replace(/\/$/, '') + '/functions/v1/reset-password');
-      }
-    } catch (_) {}
-
-    // unique
-    urls = urls.filter(function (u, i, a) { return u && a.indexOf(u) === i; });
-    if (!urls.length) throw new Error('Password reset service is not configured');
-
-    var headers = { 'Content-Type': 'application/json' };
-    try {
-      if (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY) {
-        headers.apikey = SUPABASE_ANON_KEY;
-        headers.Authorization = 'Bearer ' + SUPABASE_ANON_KEY;
-      }
-    } catch (_) {}
-
-    var lastErr = null;
-    for (var i = 0; i < urls.length; i++) {
-      var url = urls[i];
-      try {
-        var res = await fetch(url, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ email: em, password: pw })
-        });
-        var data = {};
-        try { data = await res.json(); } catch (_) {}
-        if (res.status === 404 || (data && data.code === 'NOT_FOUND')) {
-          lastErr = new Error('Service not found at ' + url);
-          continue;
-        }
-        if (!res.ok) {
-          throw new Error((data && data.error) || ('Could not update password (' + res.status + ')'));
-        }
-        return data;
-      } catch (netErr) {
-        lastErr = netErr;
-        // try next URL
-      }
-    }
-
-    var hint =
-      'Password service is not available yet. ' +
-      'If you host on Netlify: Site settings → Environment variables → add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY → Redeploy. ' +
-      'Or deploy the Supabase function. Details in SUPABASE_SETUP.md.';
-    throw new Error((lastErr && lastErr.message ? lastErr.message + ' — ' : '') + hint);
   },
 
   async updatePassword(newPassword) {
@@ -373,7 +299,7 @@ const DB = {
     // Ensure we have a session (recovery link or logged-in user)
     const { data: sess } = await sb.auth.getSession();
     if (!sess || !sess.session) {
-      throw new Error('Please sign in first, then update your password in Settings (no email is used).');
+      throw new Error('Your session has expired. Sign in again, then retry.');
     }
     const { error } = await sb.auth.updateUser({ password: pw });
     if (error) throw new Error(error.message || 'Could not update password');
@@ -681,12 +607,109 @@ const DB = {
   },
 
 
+  /** Normalise UI labels to the values the database CHECK constraints accept */
+  _normDifficulty(d) {
+    const t = String(d || 'medium').toLowerCase();
+    if (/easy|beginner|basic|fresher|junior/.test(t)) return 'easy';
+    if (/hard|advanced|expert|senior/.test(t)) return 'hard';
+    return 'medium';
+  },
+  _normMode(m) {
+    const t = String(m || 'professional').toLowerCase();
+    if (t.includes('friend')) return 'friendly';
+    if (t.includes('strict')) return 'strict';
+    return 'professional';
+  },
+
+  /**
+   * Save a finished interview (session + questions + answers + report) in one go.
+   * `cid` makes it safe to retry: the same interview is never stored twice.
+   */
+  async saveInterviewResult(p) {
+    const s = this.requireUser();
+    const sb = getSupabase();
+    const setup = p.setup || {};
+    const answers = p.answers || [];
+    if (!answers.length) return null;
+
+    if (p.cid) {
+      const { data: dup } = await sb.from('interview_reports').select('id')
+        .eq('user_id', s.userId).eq('detailed_json->>cid', String(p.cid)).limit(1);
+      if (dup && dup.length) return { duplicate: true };
+    }
+
+    const startedAt = new Date(new Date(p.completedAt || Date.now()).getTime() - (Number(p.duration) || 0) * 1000).toISOString();
+    const { data: sess, error: e1 } = await sb.from('interview_sessions').insert({
+      user_id: s.userId,
+      resume_id: p.resumeId || null,
+      job_id: p.jobId || null,
+      title: setup.position || 'Mock Interview',
+      mode: this._normMode(setup.style),
+      difficulty: this._normDifficulty(setup.difficulty),
+      language: setup.language || 'en',
+      total_questions: setup.numQuestions || answers.length,
+      status: 'in_progress',
+      started_at: startedAt
+    }).select().single();
+    if (e1) throw e1;
+
+    // Questions + answers (failures here must never block the report)
+    try {
+      const { data: qs, error: e2 } = await sb.from('interview_questions').insert(
+        answers.map((a, i) => ({ session_id: sess.id, question_order: i + 1, question_text: a.question, category: a.type || 'general' }))
+      ).select();
+      if (e2) throw e2;
+      const byOrder = {};
+      (qs || []).forEach(q => { byOrder[q.question_order] = q.id; });
+      const rows = answers.map((a, i) => byOrder[i + 1] ? {
+        session_id: sess.id, question_id: byOrder[i + 1], user_id: s.userId,
+        answer_text: a.answer, score: a.score ?? null, feedback: a.evaluation || null, metrics_json: {}
+      } : null).filter(Boolean);
+      if (rows.length) {
+        const { error: e3 } = await sb.from('interview_answers').insert(rows);
+        if (e3) console.warn('answers save', e3);
+      }
+    } catch (err) { console.warn('questions/answers save', err); }
+
+    const overall = Number(p.overallScore) || 0;
+    const avg = key => {
+      const v = answers.map(a => Number(a[key])).filter(n => !isNaN(n));
+      return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : overall;
+    };
+    await this.saveReport({
+      sessionId: sess.id,
+      overall, clarity: overall, relevance: overall, depth: overall, delivery: overall,
+      strengths: p.strengths || [], improvements: p.improvements || [],
+      summary: 'Completed mock interview for ' + (setup.position || 'role') + ' · Score ' + overall,
+      detailed: { cid: String(p.cid || ''), answers, setup, duration: p.duration, overallScore: overall }
+    });
+    await sb.from('interview_sessions').update({ status: 'completed', completed_at: p.completedAt || new Date().toISOString() }).eq('id', sess.id);
+    return sess;
+  },
+
+  /** Retry interviews whose upload was interrupted (offline, app closed, slow network) */
+  async flushPendingInterviews() {
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem('mm_pending_interviews') || '[]') || []; } catch (_) {}
+    if (!list.length) return 0;
+    const left = [];
+    let done = 0;
+    for (const item of list) {
+      try { await this.saveInterviewResult(item); done++; }
+      catch (e) { console.warn('pending interview retry failed', e); left.push(item); }
+    }
+    try { localStorage.setItem('mm_pending_interviews', JSON.stringify(left)); } catch (_) {}
+    return done;
+  },
+
   async hydrateLocalFromCloud() {
     if (!this.isConfigured()) return;
     let s;
     try { s = this.requireUser(); } catch { return; }
     const sb = getSupabase();
     const uid = s.userId;
+
+    try { await this.flushPendingInterviews(); } catch (_) {}
 
     const { data: resumes } = await sb.from('resumes')
       .select('*, resume_profiles(*)')
@@ -746,7 +769,12 @@ const DB = {
         localSessions = JSON.parse(localStorage.getItem((window.STORAGE_KEYS && STORAGE_KEYS.sessions) || 'ipa_sessions') || '[]') || [];
       } catch (_) { localSessions = []; }
 
-      const mapped = sessions.map(sess => {
+      // Sessions that never got a report (upload interrupted) are NOT real results: never show them as 0%
+      const completeOnly = sessions.filter(sess => {
+        const r = Array.isArray(sess.interview_reports) ? sess.interview_reports[0] : sess.interview_reports;
+        return !!r && sess.status !== 'setup';
+      });
+      const mapped = completeOnly.map(sess => {
         const rep = Array.isArray(sess.interview_reports) ? sess.interview_reports[0] : sess.interview_reports;
         const started = sess.started_at ? new Date(sess.started_at).getTime() : 0;
         const completed = sess.completed_at ? new Date(sess.completed_at).getTime() : 0;
@@ -758,6 +786,7 @@ const DB = {
         // Prefer local copy if it has a better score or answers
         const localMatch = localSessions.find(l =>
           String(l.id) === String(sess.id) ||
+          (detailed && detailed.cid && String(l.id) === String(detailed.cid)) ||
           (l.position === (sess.title || 'Interview') && Math.abs(new Date(l.date || 0) - new Date(sess.completed_at || sess.created_at || 0)) < 120000)
         );
         if (localMatch) {
@@ -789,7 +818,11 @@ const DB = {
 
       // Keep pure-local sessions that aren't on the cloud yet
       const cloudIds = new Set(mapped.map(m => String(m.id)));
-      const onlyLocal = localSessions.filter(l => l && !cloudIds.has(String(l.id)) && (Number(l.score) > 0 || (l.answers || []).length));
+      const cloudCids = new Set(completeOnly.map(sess => {
+        const r = Array.isArray(sess.interview_reports) ? sess.interview_reports[0] : sess.interview_reports;
+        return String(((r && r.detailed_json) || {}).cid || '');
+      }).filter(Boolean));
+      const onlyLocal = localSessions.filter(l => l && !cloudIds.has(String(l.id)) && !cloudCids.has(String(l.id)) && (l.answers || []).length);
       const merged = mapped.concat(onlyLocal).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 40);
       localStorage.setItem((window.STORAGE_KEYS && STORAGE_KEYS.sessions) || 'ipa_sessions', JSON.stringify(merged));
     }
@@ -799,6 +832,12 @@ const DB = {
       localStorage.setItem('mm_user_progress', JSON.stringify(prog));
       const skills = prog.skills_improved;
       if (Array.isArray(skills)) {
+        const red = skills.find(x => x && x.type === 'redeemed');
+        if (red && Array.isArray(red.ids)) {
+          let own = [];
+          try { own = JSON.parse(localStorage.getItem('mm_redeemed') || '[]') || []; } catch (_) {}
+          localStorage.setItem('mm_redeemed', JSON.stringify(Array.from(new Set(own.concat(red.ids)))));
+        }
         const cred = skills.find(x => x && x.type === 'credits');
         if (cred && typeof cred.balance === 'number') {
           localStorage.setItem('mm_credits', String(cred.balance));
@@ -822,6 +861,18 @@ const DB = {
         last_activity_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
     } catch (e) { console.warn('syncCredits', e); }
+  },
+
+  async syncRedeemedToCloud(ids) {
+    if (!this.isConfigured()) return;
+    try {
+      const s = this.requireUser();
+      const sb = getSupabase();
+      const { data: prog } = await sb.from('user_progress').select('skills_improved').eq('user_id', s.userId).maybeSingle();
+      let skills = Array.isArray(prog?.skills_improved) ? prog.skills_improved.filter(x => !(x && x.type === 'redeemed')) : [];
+      skills.push({ type: 'redeemed', ids: ids || [], updatedAt: new Date().toISOString() });
+      await sb.from('user_progress').upsert({ user_id: s.userId, skills_improved: skills, last_activity_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    } catch (e) { console.warn('syncRedeemed', e); }
   },
 
   async listSessionReports() {

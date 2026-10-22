@@ -44,8 +44,8 @@
       { type: 'hr', question: 'Why this company and why this role now?' }
     ];
     const out = document.getElementById('out');
-    if (!Utils.getRedeemed().includes('tier1Pack')) {
-      out.innerHTML = '<div class="card-app"><div class="card-body"><p>Redeem <strong>Tier-1 Tech Insider Question Pack</strong> (250 credits) to unlock.</p><a href="../rewards.html" class="btn-primary-app">Rewards</a></div></div>';
+    if (!Utils.requireReward('tier1Pack', out)) {
+      /* locked: unlock card rendered */
     } else {
       out.innerHTML = `
         <div class="card-app mb-3"><div class="card-body">

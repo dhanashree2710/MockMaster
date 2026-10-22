@@ -34,9 +34,8 @@
   <script src="../../assets/js/theme.js"></script>
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
-    if (!Utils.getRedeemed().includes('exec360')) {
-      document.getElementById('gate').classList.remove('d-none');
-      document.getElementById('gate').querySelector('.card-body').innerHTML = '<p>Redeem <strong>Executive 360°</strong> (50 credits) to unlock — includes ₹15 prize.</p><a class="btn-primary-app" href="../rewards.html">Rewards</a>';
+    if (!Utils.requireReward('exec360', document.getElementById('app'))) {
+      /* locked: unlock card rendered */
     } else {
       function findBestReport() {
         try {
@@ -49,7 +48,7 @@
           if (hit) return hit;
         } catch (_) {}
         try {
-          const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+          const sessions = (Utils.getRealSessions && Utils.getRealSessions()) || [];
           const s = sessions.find(x => x && (x.answers || []).length);
           if (s) return { answers: s.answers, duration: s.duration, overallScore: s.score, setup: s.setup || { position: s.position } };
         } catch (_) {}

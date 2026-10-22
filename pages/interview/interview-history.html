@@ -103,7 +103,7 @@
   <script src="../../assets/js/utils.js"></script>
   <script>
     document.getElementById('navCredits').textContent = Utils.getCredits();
-    const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+    const sessions = Utils.getRealSessions();
     let activeFilter = 'all';
     function formatDuration(sec) {
       sec = Number(sec) || 0;
@@ -178,10 +178,16 @@
         btn.addEventListener('click', () => {
           const s = sessions[Number(btn.dataset.idx)];
           if (!s) return;
+          let score = Number(s.score) || 0;
+          const ans = s.answers || [];
+          if ((!score || score === 0) && ans.length) {
+            const sum = ans.reduce((a, b) => a + (Number(b.score) || 0), 0);
+            if (sum > 0) score = Math.round(sum / ans.length);
+          }
           sessionStorage.setItem('ipa_last_report', JSON.stringify({
-            overallScore: s.score, duration: s.duration, completedAt: s.date,
+            overallScore: score, duration: s.duration, completedAt: s.date,
             setup: { position: s.position, difficulty: s.difficulty, style: s.style, type: s.type, numQuestions: s.numQuestions },
-            answers: s.answers || []
+            answers: ans
           }));
           location.href = '../report/interview-report.html';
         });

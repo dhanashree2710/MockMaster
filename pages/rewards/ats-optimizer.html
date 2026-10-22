@@ -106,13 +106,10 @@
   <script src="../../assets/js/auth-guard.js"></script>
   <script>
     function requireReward(id) {
-      // Always allow ATS optimizer once resume + job exist (core workflow).
-      // Still mark as owned if previously redeemed so Rewards UI stays consistent.
-      const owned = Utils.getRedeemed();
-      if (!owned.includes(id)) {
-        try { Utils.markRedeemed(id); } catch (_) {}
-      }
-      return true;
+      // Must unlock via Rewards (₹9+ credits). Gate with shared Utils.requireReward.
+      const out = document.getElementById('app') || document.querySelector('.page-content') || document.body;
+      if (Utils.requireReward(id, out, '../')) return true;
+      return false;
     }
 
     function extractKeywords(job) {

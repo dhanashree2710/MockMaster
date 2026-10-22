@@ -24,18 +24,11 @@ SQL Editor → paste the **whole** `supabase/schema.sql` → Run.
 | Confirm email | ON is recommended (the app handles it). OFF = instant sign-in. |
 | URL Configuration → Site URL | your hosted HTTPS URL, e.g. `https://app.yourdomain.com` |
 | URL Configuration → Site URL | your hosted HTTPS URL, e.g. `https://app.yourdomain.com` |
-| URL Configuration → Redirect URLs | **Must include** `https://app.yourdomain.com/pages/reset-password.html` and `https://app.yourdomain.com/pages/login.html` (Forgot password will fail without these) |
+| URL Configuration → Redirect URLs | include `https://app.yourdomain.com/pages/login.html` (used by the sign-up confirmation email) |
 | Password strength | min length 8 (match the app) |
 | Rate limits / CAPTCHA | turn on CAPTCHA (hCaptcha/Turnstile) if you see sign-up abuse |
 
-**Password reset checklist**
-1. Add `…/pages/reset-password.html` under Authentication → URL Configuration → Redirect URLs.
-2. Save, then on the app: enter email on Sign in → **Forgot password**.
-3. Open the email link (check Spam). You land on “Set a new password” → enter password twice → **Update password**.
-4. Sign in with the new password.
-5. Logged-in users can also change password under **Settings → Change password**.
-
-(Optional) Customise the confirmation / reset email templates with your app name.
+**Forgot password** (email + new password) — run `supabase/schema.sql` once (see PASSWORD_RESET_GUIDE.md).
 
 ## 4. Test checklist (do this before submitting)
 1. Sign up → (confirm email) → sign in → dashboard loads.
@@ -62,32 +55,6 @@ SQL Editor → paste the **whole** `supabase/schema.sql` → Run.
 `register`, `login`, `signOut`, `resetPassword`, `updatePassword`, `deleteAccount`,
 `reportContent`, `createResume`, `createJob`, `saveMatch`, `createSession`, `saveReport`, …
 
-## Password reset (in-app, no email link)
+## Password reset (email + new password)
 
-Deploy the Edge Function so users can set a new password from **Forgot password**:
-
-```bash
-supabase functions deploy reset-password --no-verify-jwt
-```
-
-Optional: `supabase secrets set ALLOWED_ORIGIN=https://your-domain.com`
-
-Flow: Login → Forgot password → enter email + new password → Save → Sign in with new password.
-
-Logged-in users can also change password in **Settings**.
-
-## Password reset without Supabase CLI (recommended on Windows)
-
-If the site is on **Netlify**:
-
-1. Supabase Dashboard → **Settings → API** → copy **Project URL** and **service_role** key (secret).
-2. Netlify → your site → **Site configuration → Environment variables**:
-   - `SUPABASE_URL` = `https://uajfitgssxwgbgaueeex.supabase.co`
-   - `SUPABASE_SERVICE_ROLE_KEY` = (service_role key)
-3. **Trigger deploy** (Deploys → Trigger deploy) so the function picks up the env vars.
-4. Open app → Forgot password → email + new password → Save → Sign in.
-
-The function file is `netlify/functions/reset-password.js` (ships with the app).
-
-Logged-in users can always change password in **Settings** (no server setup).
-
+Run `supabase/schema.sql` in the SQL Editor. Details and security notes: `PASSWORD_RESET_GUIDE.md`.

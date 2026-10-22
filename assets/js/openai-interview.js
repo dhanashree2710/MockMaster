@@ -291,8 +291,12 @@
 
     var prevAsked = [];
     try {
-      var jobKey = String(position || 'general').toLowerCase().slice(0, 80).replace(/\W+/g, '_');
-      prevAsked = JSON.parse(localStorage.getItem('mm_used_questions_' + jobKey) || '[]').slice(0, 25);
+      if (global.InterviewQuestions && InterviewQuestions.getUsedQuestionsForJob) {
+        prevAsked = InterviewQuestions.getUsedQuestionsForJob(position).slice(0, 40);
+      } else {
+        var jobKey = String(position || 'general').toLowerCase().slice(0, 80).replace(/\W+/g, '_');
+        prevAsked = JSON.parse(localStorage.getItem('mm_used_questions_' + jobKey) || '[]').slice(0, 40);
+      }
     } catch (_) {}
 
     var user = [
@@ -341,6 +345,36 @@
     });
 
     if (!list.length) throw new Error('No questions in AI response');
+
+    // Safety net: drop anything the candidate has already been asked, top up from local banks
+    try {
+      if (global.InterviewQuestions && InterviewQuestions.usedIndex) {
+        var fresh = prevAsked.length
+          ? list.filter(function (q) { return InterviewQuestions.usedIndex(q.question, prevAsked) < 0; })
+          : list.slice();
+        // Shuffle so repeated attempts do not get the same order
+        for (var si = fresh.length - 1; si > 0; si--) {
+          var sj = Math.floor(Math.random() * (si + 1));
+          var tmp = fresh[si]; fresh[si] = fresh[sj]; fresh[sj] = tmp;
+        }
+        if (fresh.length < num && InterviewQuestions.buildInterviewQuestions) {
+          var local = InterviewQuestions.buildInterviewQuestions(ctx) || [];
+          local.forEach(function (q) {
+            if (fresh.length < num && InterviewQuestions.usedIndex(q.question, prevAsked) < 0
+                && !fresh.some(function (f) { return f.question === q.question; })) {
+              fresh.push(q);
+            }
+          });
+        }
+        // If still short, allow oldest-asked back in last
+        if (fresh.length < num && prevAsked.length) {
+          list.forEach(function (q) {
+            if (fresh.length < num && !fresh.some(function (f) { return f.question === q.question; })) fresh.push(q);
+          });
+        }
+        if (fresh.length) list = fresh;
+      }
+    } catch (_) {}
     return list.slice(0, num);
   }
 

@@ -106,13 +106,13 @@
               <img src="../assets/images/mockmaster-logo.png" alt="" style="width:36px;height:36px;border-radius:8px;background:#fff;padding:2px;">
               <div>
                 <h1 class="h5 fw-bold mb-0 text-white">Candidate Rewards Store</h1>
-                <p class="small mb-0" style="color:rgba(156,176,128,0.8)">Redeem credits for premium AI analytics</p>
+                <p class="small mb-0" style="color:rgba(156,176,128,0.8)">Unlock premium reports — pay securely via Razorpay (from ₹9)</p>
               </div>
             </div>
           </div>
           <div class="text-end">
             <div class="small" style="color:rgba(255,255,255,0.55)">Your Balance</div>
-            <div class="balance"><span id="creditBalance">0</span> <span class="fs-6 fw-semibold">Credits</span></div>
+            <div class="balance"><span id="creditBalance">0</span> <span class="fs-6 fw-semibold">Credits (bonus)</span></div>
           </div>
         </div>
         <div class="d-flex flex-wrap gap-2 mt-3">
@@ -158,44 +158,7 @@
   <script src="../assets/js/theme.js"></script>
   <script src="../assets/js/utils.js"></script>
   <script>
-    const REWARDS = [
-      {
-        id: 'exec360',
-        tag: 'Most Popular', tagClass: 'tag-popular',
-        cost: 50,
-        prizeInr: 15,
-        title: 'Executive 360° AI Interview Breakdown',
-        desc: 'Comprehensive analysis of your interview transcript with line-by-line sentiment, executive presence scoring, and STAR metrics. Prize: ₹15 wallet credit.',
-        href: 'rewards/exec-360.html'
-      },
-      {
-        id: 'voiceReplay',
-        tag: 'Audio AI', tagClass: 'tag-audio',
-        cost: 50,
-        prizeInr: 12,
-        title: 'Live AI Voice Tone & Pace Replay',
-        desc: 'Speech pace audit (WPM), filler-word detection, pitch stability analysis, and conversational confidence heatmap. Prize: ₹12 wallet credit.',
-        href: 'rewards/voice-analysis.html'
-      },
-      {
-        id: 'atsOptimizer',
-        tag: 'Free · ATS', tagClass: 'tag-ats',
-        cost: 0,
-        prizeInr: 9,
-        title: 'AI Resume & ATS Alignment Optimizer',
-        desc: 'Upload resume + job description → generate ATS-aligned resume → download .txt / .doc. Free core tool. Prize: ₹9 wallet credit on first use.',
-        href: 'resume/generate-from-jd.html'
-      },
-      {
-        id: 'tier1Pack',
-        tag: 'Premium Pack', tagClass: 'tag-pack',
-        cost: 50,
-        prizeInr: 20,
-        title: 'Tier-1 Tech Insider Question Pack',
-        desc: 'Curated top 30 real-world behavioral and system architecture questions recently asked at Google, Stripe, Meta, and Microsoft. Prize: ₹20 wallet credit.',
-        href: 'rewards/tier1-pack.html'
-      }
-    ];
+    const REWARDS = Utils.REWARDS;
 
     function ensureStarterCredits() {
       // Seed ONLY if the wallet was never initialised (no balance key AND no history).
@@ -226,63 +189,60 @@
       const bal = Utils.getCredits();
       document.getElementById('rewardsGrid').innerHTML = REWARDS.map(r => {
         const isOwned = owned.includes(r.id);
-        const canBuy = bal >= r.cost && !isOwned;
-        const prize = Math.max(9, Number(r.prizeInr) || 9);
+        const price = Utils.rewardPrice(r);
         return `
           <div class="col-md-6">
             <div class="reward-card ${isOwned ? 'is-owned' : ''}">
               <div class="d-flex justify-content-between align-items-start">
                 <span class="tag ${r.tagClass}">${r.tag}</span>
-                <span class="reward-cost"><i class="bi bi-coin me-1"></i>${r.cost <= 0 ? 'Free' : r.cost + ' Pts'}</span>
+                <span class="reward-cost"><i class="bi bi-currency-rupee me-1"></i>₹${price}</span>
               </div>
               <h5 class="fw-bold mb-2">${r.title}</h5>
               <p class="text-muted small mb-2">${r.desc}</p>
-              <p class="small mb-3" style="color:var(--primary);font-weight:600;"><i class="bi bi-gift me-1"></i>Prize: ₹${prize}</p>
+              <p class="small mb-3" style="color:var(--primary);font-weight:600;"><i class="bi bi-shield-lock me-1"></i>Price: ₹${price} · Pay via Razorpay (UPI / Card / Netbanking)</p>
               ${isOwned
-                ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Use now</a>`
-                : `<button type="button" class="btn-redeem" data-id="${r.id}" data-cost="${r.cost}" ${canBuy ? '' : 'disabled'}>
-                    <i class="bi bi-stars me-1"></i> ${r.cost <= 0 ? "Open free · Claim ₹" + prize : ("Redeem for " + r.cost + " Pts · Get ₹" + prize)}
+                ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Open</a>`
+                : `<button type="button" class="btn-redeem" data-id="${r.id}">
+                    <i class="bi bi-credit-card me-1"></i> Pay ₹${price}
                   </button>`}
             </div>
           </div>`;
       }).join('');
 
       document.querySelectorAll('.btn-redeem[data-id]').forEach(btn => {
-        btn.addEventListener('click', function (e) {
+        btn.addEventListener('click', async function (e) {
           e.preventDefault();
+          if (btn.disabled) return;
+          btn.disabled = true;
           const id = btn.getAttribute('data-id');
-          const cost = Number(btn.getAttribute('data-cost')) || 0;
-          const item = REWARDS.find(x => x.id === id);
-          if (!item) return;
-          if (Utils.getRedeemed().includes(id)) {
-            if (item.href) location.href = item.href;
-            return;
-          }
-          if (cost > 0 && !Utils.spendCredits(cost, 'Redeem: ' + item.title)) {
-            Utils.showToast('Not enough credits. Complete more interviews or check balance above.', 'warning');
-            return;
-          }
-          Utils.markRedeemed(id);
-
-          // Grant prize (₹9+) as bonus credits — 1 credit ≈ ₹1 for wallet display
-          const prize = Math.max(9, Number(item.prizeInr) || 9);
-          if (Utils.addCredits) {
-            Utils.addCredits(prize, 'Reward prize ₹' + prize + ' — ' + item.title);
-          }
-          // Track claimed prizes for UI
+          const label = btn.innerHTML;
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Opening payment…';
           try {
-            const prizes = JSON.parse(localStorage.getItem('mm_prizes_claimed') || '[]');
-            prizes.unshift({ id: item.id, title: item.title, inr: prize, at: new Date().toISOString() });
-            localStorage.setItem('mm_prizes_claimed', JSON.stringify(prizes.slice(0, 50)));
-          } catch (_) {}
-
-          Utils.showToast('Unlocked: ' + item.title + ' · Prize ₹' + prize + ' added!', 'success', 3200);
-          refreshBalance();
-          renderCatalog();
-          if (item.href) {
-            setTimeout(function () {
-              if (confirm('Unlocked! Prize ₹' + prize + ' credited. Open this reward now?')) location.href = item.href;
-            }, 300);
+            const res = await Utils.payWithRazorpay(id);
+            if (res.cancelled) {
+              Utils.showToast('Payment cancelled.', 'info');
+              btn.disabled = false;
+              btn.innerHTML = label;
+              return;
+            }
+            if (!res.ok) {
+              Utils.showToast(res.error || 'Payment failed.', 'warning');
+              btn.disabled = false;
+              btn.innerHTML = label;
+              return;
+            }
+            if (res.already) {
+              Utils.showToast('Already unlocked.', 'info');
+            } else {
+              Utils.showToast('Paid ₹' + res.price + ' · ' + res.reward.title + ' unlocked!' + (res.paymentId ? ' (#' + res.paymentId.slice(-6) + ')' : ''), 'success', 4000);
+            }
+            refreshBalance();
+            renderCatalog();
+            renderHistory();
+          } catch (err) {
+            Utils.showToast((err && err.message) || 'Payment error', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = label;
           }
         });
       });

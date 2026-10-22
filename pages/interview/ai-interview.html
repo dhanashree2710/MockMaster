@@ -105,7 +105,9 @@
     const interviewLang = setup.language || 'en';
 
     document.getElementById('styleLabel').textContent = `${setup.style || 'Professional'} · ${setup.difficulty || 'Medium'}`;
-    const displayRole = setup.position || jobData.position || jobData.title || resumeData.currentRole || 'Interview';
+    const cleanTitle = t => String(t || '').replace(/[*_`#]+/g, '').replace(/\s+/g, ' ').trim();
+    if (setup.position) setup.position = cleanTitle(setup.position);
+    const displayRole = cleanTitle(setup.position || jobData.position || jobData.title || resumeData.currentRole) || 'Interview';
     document.getElementById('roleLabel').textContent = displayRole;
 
     // Load questions: prefer OpenAI/Gemini when configured, else local banks
@@ -198,46 +200,64 @@
     // Credits per answered question
     const CREDITS_PER_ANSWER = 10;
 
-    /** Detect "repeat the question" / "say again" so we re-ask instead of advancing */
+    /**
+     * Detect "repeat the question" / "say again" / "I didn't hear" (typed or spoken) so we
+     * re-ask the SAME question instead of treating it as an answer and moving on.
+     * Allows longer polite phrases; real long answers are never treated as commands.
+     */
     function isRepeatCommand(text) {
-      const t = String(text || '').toLowerCase().replace(/[^\w\s']/g, ' ').replace(/\s+/g, ' ').trim();
-      if (!t || t.length > 80) return false;
-      // Exact / short phrases
-      if (/^(repeat|again|say again|one more time|pardon|pardon me|come again)$/i.test(t)) return true;
-      if (/^(please\s+)?(repeat|say)\s+(the\s+)?(question|that|it)(\s+please)?$/i.test(t)) return true;
-      if (/^(can|could|would)\s+you\s+(please\s+)?(repeat|say)\s+(the\s+)?(question|that|it)?/i.test(t)) return true;
-      if (/^(i\s+)?(didn't|did not|dont|don't|couldn't|could not)\s+(hear|catch|get|understand)/i.test(t) && t.split(/\s+/).length <= 10) return true;
-      if (/^(what was the question|what did you (ask|say)|sorry\s*(what|can you repeat))/i.test(t)) return true;
-      // Hindi / Hinglish common asks
-      if (/^(dobara|phir se|ek baar (aur|phir)|sawal (dobara|phir)|repeat karo|phir se bolo)/i.test(t)) return true;
+      const t = String(text || '').toLowerCase()
+        .replace(/[^\w\s'\u0900-\u097F]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!t) return false;
+      const words = t.split(/\s+/).filter(Boolean);
+      // Real answers are almost always longer; allow up to 22 words for polite "can you please..."
+      if (words.length > 22) return false;
+
+      // Candidate describing their own work ("I repeat the process...") is an answer, not a command
+      if (/\b(i|we|they)\s+(would |will |usually |always |then |also |just )?repeat\b/.test(t)
+          && !/\b(please|question|again)\b/.test(t)) return false;
+
+      // Single-word / two-word commands
+      if (/^(repeat|again|pardon|sorry|what|huh|dobara|phir|excuse me|come again)$/.test(t)) return true;
+
+      const askWord = /\b(repeat|repeated|rephrase|reword|replay|re ?ask|ask (it |that |the question )?again|say (it |that |the question )?again|speak again|tell (it |that |me )?again|read (it |that |the question )?again|once more|one more time|come again|pardon|what was (the|that|your) question|what did you (ask|say)|which question|question (again|please)|can'?t hear|could ?n'?t hear|did ?n'?t hear|did not hear|not (able to )?hear|did ?n'?t (catch|get|understand)|did not (catch|get|understand)|not clear|unclear|samajh nahi|samjha nahi|sunai nahi|dobara|phir se|ek baar (aur|phir)|sawal (dobara|phir)|repeat karo|phir se bolo|fir se bolo|please repeat|can you repeat|could you repeat|would you repeat|repeat please|again please)\b/;
+      if (askWord.test(t)) return true;
+      // Short phrases with "again" / "more time"
+      if (words.length <= 6 && /\b(again|more time|pardon|sorry)\b/.test(t)) return true;
+      // "I didn't get that" style without other content
+      if (words.length <= 10 && /\b(didn'?t|did not|cannot|can'?t)\b/.test(t) && /\b(hear|catch|get|understand|follow)\b/.test(t)) return true;
       return false;
     }
 
     function repeatCurrentQuestion() {
       if (!questions.length || current >= questions.length) return;
+      // CRITICAL: do NOT increment `current` — stay on the same question
       const q = questions[current];
+      try { stopMic(); } catch (_) {}
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
       const box = document.getElementById('answerInput');
       if (box) box.value = '';
       document.getElementById('submitBtn').disabled = true;
-      addMessage('Of course — repeating the question.', 'ai');
+      addMessage('Sure — repeating question ' + (current + 1) + '.', 'ai');
       setTimeout(() => {
         addMessage(q.question, 'ai');
         if (typeof speakText === 'function') speakText(q.question);
         document.getElementById('statusBadge').innerHTML = '<i class="bi bi-circle-fill me-1" style="font-size:8px;"></i> Listening';
-        if (box) box.focus();
+        if (box) { box.value = ''; box.focus(); }
+        document.getElementById('submitBtn').disabled = true;
       }, 400);
-      if (window.Utils && Utils.showToast) Utils.showToast('Repeating question…', 'info', 1800);
+      if (window.Utils && Utils.showToast) Utils.showToast('Repeating the same question…', 'info', 1800);
     }
 
-    document.getElementById('submitBtn').addEventListener('click', () => {
-      const ans = document.getElementById('answerInput').value.trim();
+    function submitAnswerText(ans) {
+      ans = String(ans || '').trim();
       if (!ans) return;
-
-      // User asked to repeat — do NOT advance or score
+      // User asked to repeat — do NOT advance, do NOT score
       if (isRepeatCommand(ans)) {
         repeatCurrentQuestion();
         return;
       }
+      if (!questions.length || current >= questions.length) return;
 
       addMessage(ans, 'user');
       const score = scoreAnswer(ans, questions[current]);
@@ -248,22 +268,37 @@
         level: questions[current].level,
         domain: questions[current].domain,
         answer: ans,
-        score,
+        score: Number(score) || 0,
         evaluation: ev.evalText,
         betterAnswer: ev.better
       });
-      // Award credits to wallet
       if (window.Utils && Utils.addCredits) {
         const bal = Utils.addCredits(CREDITS_PER_ANSWER, 'Answered interview question');
         if (Utils.showToast) Utils.showToast('+' + CREDITS_PER_ANSWER + ' credits · Balance ' + bal, 'success', 2200);
       }
-      // Instant feedback if enabled
       if (setup.instantFeedback) {
         addMessage('Quick feedback: Score ' + score + '/100 for this answer. Keep using concrete examples.', 'ai');
       }
       current++;
       document.getElementById('submitBtn').disabled = true;
+      const box = document.getElementById('answerInput');
+      if (box) box.value = '';
       setTimeout(askQuestion, setup.instantFeedback ? 1200 : 600);
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      const ans = document.getElementById('answerInput').value.trim();
+      if (!ans) return;
+      submitAnswerText(ans);
+    });
+
+    // Enter key also submits (with same repeat protection)
+    document.getElementById('answerInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const ans = document.getElementById('answerInput').value.trim();
+        if (ans) submitAnswerText(ans);
+      }
     });
 
     document.getElementById('endBtn').addEventListener('click', () => {
@@ -311,6 +346,20 @@
       qWords.forEach(w => { if (aLow.includes(w)) hits++; });
       score += Math.min(15, hits * 2);
 
+      // Compare with the reference/ideal answer for THIS question (works for every role, not only frontend)
+      try {
+        let ref = (q && q.idealAnswer) ? String(q.idealAnswer) : '';
+        if (!ref && window.InterviewQuestions && InterviewQuestions.getModelAnswer) ref = String(InterviewQuestions.getModelAnswer((q && q.question) || '') || '');
+        if (ref.length > 40) {
+          const STOP = new Set('about above after again also because before being between could does doing during each from have having into more most other should that their them then there these they this those through under until very were what when where which while with would your you are and the for not but can will use used using'.split(' '));
+          const keys = Array.from(new Set(ref.toLowerCase().split(/\W+/).filter(w => w.length > 4 && !STOP.has(w)))).slice(0, 18);
+          if (keys.length >= 4) {
+            const got = keys.filter(k => aLow.includes(k.slice(0, Math.max(5, k.length - 2)))).length;
+            score += Math.round(Math.min(1, got / Math.min(keys.length, 10)) * 22);
+          }
+        }
+      } catch (_) {}
+
       // Concept keywords for common frontend topics
       if (/html|hypertext|markup/i.test(q.question || '')) {
         if (/hypertext|markup|structure|browser/i.test(aLow)) score += 10;
@@ -354,120 +403,111 @@
       return { evalText, better: model };
     }
 
-    function finishInterview() {
+    let finishing = false;
+
+    function showSavingOverlay(text) {
+      let o = document.getElementById('savingOverlay');
+      if (!o) {
+        o = document.createElement('div');
+        o.id = 'savingOverlay';
+        o.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(20,30,26,.72);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;text-align:center;padding:1rem';
+        o.innerHTML = '<div><div class="spinner-border mb-3" role="status"></div><div id="savingOverlayText"></div></div>';
+        document.body.appendChild(o);
+      }
+      document.getElementById('savingOverlayText').textContent = text || 'Saving your report…';
+    }
+
+    async function finishInterview() {
+      if (finishing) return;
+      finishing = true;
       clearInterval(timerInterval);
+      try { stopMic(); } catch (_) {}
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+
+      // Nothing answered → no report to create (prevents empty 0% rows in History)
+      if (!answers.length) {
+        if (window.Utils && Utils.showToast) Utils.showToast('Answer at least one question to get a report.', 'info', 2500);
+        setTimeout(() => { location.href = '../dashboard.html'; }, 1200);
+        return;
+      }
+
       let duration = Math.floor((Date.now() - startTime) / 1000);
-      // Ensure sensible duration when answers exist (avoids 0s history rows)
-      if (answers.length && duration < 5) duration = Math.max(5, answers.length * 15);
+      if (duration < 5) duration = Math.max(5, answers.length * 15);
 
-      const scores = answers.map(a => Number(a.score) || 0).filter(n => n > 0);
-      const overallScore = answers.length
-        ? Math.round(answers.reduce((a, b) => a + (Number(b.score) || 0), 0) / answers.length)
-        : 0;
+      // Always compute from per-answer scores so the report never shows 0 after real answers
+      let overallScore = 0;
+      const scored = answers.map(a => Number(a.score)).filter(n => !isNaN(n) && n >= 0);
+      if (scored.length) {
+        overallScore = Math.round(scored.reduce((a, b) => a + b, 0) / scored.length);
+      }
+      // Safety: if somehow all zeros but answers exist with text, give a minimal floor from length
+      if (overallScore === 0 && answers.length) {
+        const withText = answers.filter(a => String(a.answer || '').trim().length > 5);
+        if (withText.length) {
+          overallScore = Math.max(25, Math.round(
+            withText.reduce((a, b) => a + Math.min(70, 20 + String(b.answer || '').split(/\s+/).length), 0) / withText.length
+          ));
+          answers.forEach(a => {
+            if (!(Number(a.score) > 0) && String(a.answer || '').trim().length > 5) {
+              a.score = Math.min(70, 20 + String(a.answer).split(/\s+/).length);
+            }
+          });
+        }
+      }
+      overallScore = Math.max(0, Math.min(100, overallScore));
 
-      const report = {
-        answers,
-        setup,
-        duration,
-        overallScore,
-        completedAt: new Date().toISOString()
-      };
-      sessionStorage.setItem('ipa_last_report', JSON.stringify(report));
+      const completedAt = new Date().toISOString();
+      const cid = Date.now();
+      const positionClean = cleanTitle(setup.position || jobData.position || jobData.title || 'Mock Interview');
+      setup.position = positionClean;
 
-      // Persist report archive so Rewards / Voice / Exec360 work after refresh
+      const report = { answers, setup, duration, overallScore, completedAt, cid };
+      try { sessionStorage.setItem('ipa_last_report', JSON.stringify(report)); } catch (_) {}
+
       try {
         const archive = JSON.parse(localStorage.getItem('ipa_reports_archive') || '[]');
         archive.unshift(report);
         localStorage.setItem('ipa_reports_archive', JSON.stringify(archive.slice(0, 30)));
       } catch (_) {}
 
-      // Track asked questions so re-attempts get different variety
-      try {
-        const jobKey = (setup.position || jobData.position || jobData.title || 'general').toLowerCase().slice(0, 80);
-        const usedKey = 'mm_used_questions_' + jobKey.replace(/\W+/g, '_');
-        const prev = JSON.parse(localStorage.getItem(usedKey) || '[]');
-        const asked = answers.map(a => String(a.question || '').slice(0, 120));
-        const merged = [...asked, ...prev].filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 80);
-        localStorage.setItem(usedKey, JSON.stringify(merged));
-      } catch (_) {}
+      // Remember questions so the NEXT attempt for the same JD gets different ones
+      try { if (window.InterviewQuestions && InterviewQuestions.markQuestionsUsed) InterviewQuestions.markQuestionsUsed(positionClean, answers); } catch (_) {}
 
-      // Save to history (local — source of truth for scores)
-      const sessions = Utils.getStored(STORAGE_KEYS.sessions, []);
-      const sessionRow = {
-        id: Date.now(),
-        position: setup.position || 'Mock Interview',
-        score: overallScore,
-        date: report.completedAt,
-        duration,
-        difficulty: setup.difficulty,
-        style: setup.style,
-        type: setup.type,
-        language: setup.language,
-        numQuestions: setup.numQuestions || answers.length,
-        answers: answers,
-        setup: setup
-      };
-      sessions.unshift(sessionRow);
+      // Local history is the source of truth for scores (never store a 0 when answers exist)
+      const sessions = Utils.getStored(STORAGE_KEYS.sessions, []) || [];
+      sessions.unshift({
+        id: cid, position: positionClean, score: overallScore, date: completedAt, duration,
+        difficulty: setup.difficulty, style: setup.style, type: setup.type, language: setup.language,
+        numQuestions: setup.numQuestions || answers.length, answers, setup
+      });
       Utils.setStored(STORAGE_KEYS.sessions, sessions.slice(0, 30));
 
-      // Save interview + report to Supabase
-      (async () => {
-        try {
-          if (!(window.DB && DB.isConfigured && DB.isConfigured() && DB.getSession && DB.getSession())) return;
-          const resume = Utils.getStored(STORAGE_KEYS.resume) || {};
-          const job = Utils.getStored(STORAGE_KEYS.job) || {};
-          const sess = await DB.createSession({
-            resumeId: resume.id || null,
-            jobId: job.id || null,
-            title: setup.position || 'Mock Interview',
-            mode: (setup.style || 'professional').toLowerCase().includes('friend') ? 'friendly'
-              : (setup.style || '').toLowerCase().includes('strict') ? 'strict' : 'professional',
-            difficulty: (setup.difficulty || 'medium').toLowerCase(),
-            language: setup.language || 'en',
-            totalQuestions: setup.numQuestions || answers.length
-          });
-          if (sess && sess.id) {
-            await DB.startSession(sess.id);
-            const qs = await DB.addQuestions(sess.id, answers.map((a, i) => ({
-              order: i + 1,
-              text: a.question,
-              category: a.type || 'general'
-            })));
-            for (let i = 0; i < answers.length; i++) {
-              const qid = qs && qs[i] && qs[i].id;
-              if (!qid) continue;
-              await DB.saveAnswer({
-                sessionId: sess.id,
-                questionId: qid,
-                answerText: answers[i].answer,
-                score: answers[i].score,
-                feedback: answers[i].evaluation || '',
-                metrics: {},
-                durationSec: null
-              });
-            }
-            // Save report FIRST so overall_score exists before complete
-            await DB.saveReport({
-              sessionId: sess.id,
-              overall: overallScore,
-              clarity: overallScore,
-              relevance: overallScore,
-              depth: overallScore,
-              delivery: overallScore,
-              strengths: scores.length ? ['Completed all answered questions', 'Relevant examples where provided'] : ['Session recorded'],
-              improvements: overallScore < 70 ? ['Add metrics and STAR structure', 'Give fuller answers'] : ['Keep practicing advanced scenarios'],
-              summary: 'Completed mock interview for ' + (setup.position || 'role') + ' · Score ' + overallScore,
-              detailed: { answers, setup, duration, overallScore }
-            });
-            await DB.completeSession(sess.id);
-            await DB.refreshProgress();
-          }
-        } catch (err) { console.warn('Supabase interview save', err); }
-      })();
+      if (window.Utils && Utils.addCredits) Utils.addCredits(25, 'Completed mock interview');
 
-      // Bonus credits for completing interview
-      if (window.Utils && Utils.addCredits && answers.length) {
-        Utils.addCredits(25, 'Completed mock interview');
+      // Upload to Supabase and WAIT for it (navigating away used to cancel the upload → empty 0% rows)
+      const strengths = overallScore >= 70 ? ['Clear, relevant answers', 'Good use of examples'] : ['Completed the session'];
+      const improvements = overallScore < 70 ? ['Add concrete examples and results', 'Give fuller, structured answers'] : ['Keep practicing advanced scenarios'];
+      const payload = {
+        cid, setup, answers, duration, overallScore, completedAt, strengths, improvements,
+        resumeId: (Utils.getStored(STORAGE_KEYS.resume) || {}).id || null,
+        jobId: (Utils.getStored(STORAGE_KEYS.job) || {}).id || null
+      };
+      const cloudOn = !!(window.DB && DB.isConfigured && DB.isConfigured() && DB.getSession && DB.getSession());
+      if (cloudOn) {
+        showSavingOverlay('Saving your report…');
+        try {
+          await Promise.race([
+            (async () => { await DB.saveInterviewResult(payload); try { await DB.refreshProgress(); } catch (_) {} })(),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
+          ]);
+        } catch (err) {
+          console.warn('Cloud save pending, will retry', err);
+          try {
+            const q = JSON.parse(localStorage.getItem('mm_pending_interviews') || '[]');
+            q.push(payload);
+            localStorage.setItem('mm_pending_interviews', JSON.stringify(q.slice(-5)));
+          } catch (_) {}
+        }
       }
       location.href = '../report/interview-report.html';
     }
@@ -704,6 +744,7 @@
       document.getElementById('qNumM').textContent = current + 1;
       document.getElementById('progressBar').style.width = ((current / questions.length) * 100) + '%';
       const qText = questions[current].question;
+      try { if (window.InterviewQuestions && InterviewQuestions.markQuestionsUsed) InterviewQuestions.markQuestionsUsed(setup.position || jobData.position || jobData.title, [questions[current]]); } catch (_) {}
       addMessage(qText, 'ai');
       document.getElementById('answerInput').value = '';
       document.getElementById('submitBtn').disabled = true;

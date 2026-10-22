@@ -16,7 +16,7 @@ feature graphic and 6 phone screenshots generated.
 ## Still required from you (cannot be done in code)
 1. `python3 scripts/configure.py --email … --host … --package …` (real domain, support email, permanent package id).
 2. Run `supabase/schema.sql`, deploy the `ai-chat` function + `GROQ_API_KEY` secret (see OPENAI_SETUP.md / SUPABASE_SETUP.md); set Auth redirect URLs.
-3. Host over HTTPS at the domain root (Netlify/Cloudflare Pages) and test sign-up, resume upload, voice interview, report, delete account.
+3. Host over HTTPS at the domain root (Cloudflare Pages) and test sign-up, resume upload, voice interview, report, delete account.
 4. `bubblewrap build` → upload the .aab, enable Play App Signing, then `configure.py --sha256 …` and redeploy `assetlinks.json`.
 5. Fill Play Console forms from `store/`, add reviewer test login, run the required closed test (testers/days requirement set by Google), then release.
 6. Final run before release: `python3 scripts/prelaunch_check.py` must say **0 fail**.

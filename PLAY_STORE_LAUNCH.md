@@ -45,8 +45,8 @@ Bootstrap, icons, Supabase JS, Chart.js, jsPDF, PDF.js, Mammoth and the Inter fo
 Keep the `vendor/` folder when you deploy. Re-check any time: `python3 scripts/vendor_assets.py --check`.
 
 ## STEP 4 — Host over HTTPS **at the domain root**
-Netlify / Cloudflare Pages / Firebase Hosting / any static host. `_headers` supplies the
-security headers (Netlify & Cloudflare format — copy them into your server config otherwise).
+Cloudflare Pages / Firebase Hosting / any static host. `_headers` supplies the
+security headers (Cloudflare format — copy them into your server config otherwise).
 **Test the live site** (sign up, upload resume, interview with voice, report, delete test account).
 The CSP is strict: if something is blocked, the browser console names the host to add.
 

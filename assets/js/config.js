@@ -26,9 +26,6 @@ const APP_CONFIG = {
   // Deploy it, set the GROQ_API_KEY secret, and users need NO key of their own.
   aiProxyUrl: 'https://uajfitgssxwgbgaueeex.supabase.co/functions/v1/ai-chat',
 
-  // Password reset (no email link) — deploy supabase/functions/reset-password
-  resetPasswordUrl: 'https://uajfitgssxwgbgaueeex.supabase.co/functions/v1/reset-password',
-
   // ------------------------------------------------------------------
   // AI PROVIDER CONFIG
   // ------------------------------------------------------------------
@@ -102,7 +99,13 @@ const APP_CONFIG = {
   ],
   interviewerStyles: ['Professional', 'Friendly', 'Strict', 'Technical'],
   difficulties: ['Easy', 'Medium', 'Hard'],
-  interviewTypes: ['Technical', 'HR / Behavioral', 'Technical + HR', 'System Design']
+  interviewTypes: ['Technical', 'HR / Behavioral', 'Technical + HR', 'System Design'],
+
+  // Razorpay — Key ID is safe in the client (Checkout). Never put Key Secret here.
+  // Test: https://dashboard.razorpay.com/app/keys
+  razorpayKeyId: 'rzp_test_TqTIeeqhuAXMJa',
+  razorpayCurrency: 'INR',
+  companyName: 'MockMaster'
 };
 
 // ---- Mock Candidate (used until real AI/backend is connected) ----

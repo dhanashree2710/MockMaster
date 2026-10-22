@@ -303,7 +303,7 @@
     const resume = Utils.getStored(STORAGE_KEYS.resume);
     const job = Utils.getStored(STORAGE_KEYS.job);
     const match = Utils.getStored(STORAGE_KEYS.match);
-    const sessions = Utils.getStored(STORAGE_KEYS.sessions, []);
+    const sessions = Utils.getRealSessions();
 
     if (job) document.getElementById('targetRole').textContent = job.position?.split(' ').slice(0,2).join(' ') || '—';
     if (match) document.getElementById('matchScore').textContent = match.score + '%';

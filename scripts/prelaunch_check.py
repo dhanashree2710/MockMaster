@@ -37,7 +37,7 @@ SCAN = HTML + JS + ['manifest.webmanifest', 'twa/twa-manifest.json', '.well-know
 
 # --fix also repairs protected pages that load auth-guard but not the Supabase client
 if FIX:
-    PUBLIC_FIX = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'reset-password.html'}
+    PUBLIC_FIX = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html'}
     CDN_SB = '<script src="/vendor/supabase/supabase.js"></script>'
     for f in HTML:
         if os.path.basename(f) in PUBLIC_FIX: continue
@@ -134,7 +134,7 @@ say('FAIL' if nosafe else 'PASS', 'safe-html.js on every page' if not nosafe els
 
 
 # 6b. script load order + login-guard coverage
-PUBLIC_PAGES = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'reset-password.html'}
+PUBLIC_PAGES = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html'}
 order = []
 for f in HTML:
     srcs = re.findall(r'<script[^>]+src="([^"]+)"', read(f))
