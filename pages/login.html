@@ -306,6 +306,48 @@
       transform: translateY(0);
     }
 
+    .input-wrap input.is-invalid {
+      border-color: #c0392b !important;
+      box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12);
+    }
+    .input-wrap input.is-valid {
+      border-color: #2B5748 !important;
+    }
+    .pwd-strength {
+      margin-top: 0.4rem;
+      display: none;
+    }
+    .pwd-strength.show { display: block; }
+    .pwd-strength-bar {
+      height: 4px;
+      border-radius: 4px;
+      background: #e5ebe6;
+      overflow: hidden;
+    }
+    .pwd-strength-bar > span {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: 4px;
+      transition: width 0.25s ease, background 0.25s ease;
+    }
+    .pwd-strength-label {
+      font-size: 0.7rem;
+      margin-top: 0.25rem;
+      color: #6b7c72;
+    }
+    .pwd-hints {
+      list-style: none;
+      padding: 0;
+      margin: 0.35rem 0 0;
+      font-size: 0.7rem;
+      color: #6b7c72;
+    }
+    .pwd-hints li { margin: 0.1rem 0; }
+    .pwd-hints li.ok { color: #2B5748; }
+    .pwd-hints li.ok::before { content: "✓ "; }
+    .pwd-hints li:not(.ok)::before { content: "○ "; opacity: 0.6; }
+
     .field-row {
       display: flex;
       justify-content: space-between;
@@ -1220,62 +1262,72 @@
 
           <form id="signupForm" novalidate>
             <div class="field">
-              <label for="signupName">Full Name</label>
+              <label for="signupName">Full Name <span aria-hidden="true" style="color:#c0392b">*</span></label>
               <div class="input-wrap">
                 <i class="bi bi-person input-icon"></i>
-                <input type="text" id="signupName" name="name" placeholder="Alex Rivera" autocomplete="name" required>
+                <input type="text" id="signupName" name="name" placeholder="Alex Rivera" autocomplete="name" required maxlength="80" aria-describedby="signupNameError">
               </div>
-              <span class="error-msg" id="signupNameError"></span>
+              <span class="error-msg" id="signupNameError" role="alert"></span>
             </div>
 
             <div class="field">
-              <label for="signupEmail">Email Address</label>
+              <label for="signupEmail">Email Address <span aria-hidden="true" style="color:#c0392b">*</span></label>
               <div class="input-wrap">
                 <i class="bi bi-envelope input-icon"></i>
-                <input type="email" id="signupEmail" name="email" placeholder="you@company.com" autocomplete="email" required>
+                <input type="email" id="signupEmail" name="email" placeholder="you@company.com" autocomplete="email" required maxlength="120" inputmode="email" aria-describedby="signupEmailError">
               </div>
-              <span class="error-msg" id="signupEmailError"></span>
+              <span class="error-msg" id="signupEmailError" role="alert"></span>
             </div>
 
             <div class="field">
-              <label for="signupPhone">Phone Number</label>
+              <label for="signupPhone">Phone Number <span class="text-muted" style="font-weight:500;font-size:0.75rem;">(optional)</span></label>
               <div class="input-wrap">
                 <i class="bi bi-telephone input-icon"></i>
-                <input type="tel" id="signupPhone" name="phone" placeholder="+91 98765 43210" autocomplete="tel">
+                <input type="tel" id="signupPhone" name="phone" placeholder="+91 98765 43210" autocomplete="tel" maxlength="20" inputmode="tel" aria-describedby="signupPhoneError">
               </div>
-              <span class="error-msg" id="signupPhoneError"></span>
+              <span class="error-msg" id="signupPhoneError" role="alert"></span>
             </div>
 
             <div class="field">
-              <label for="signupPassword">Password</label>
+              <label for="signupPassword">Password <span aria-hidden="true" style="color:#c0392b">*</span></label>
               <div class="input-wrap">
                 <i class="bi bi-lock input-icon"></i>
-                <input type="password" id="signupPassword" name="password" placeholder="Min. 8 characters" autocomplete="new-password" required minlength="8">
+                <input type="password" id="signupPassword" name="password" placeholder="Min. 8 characters" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="signupPasswordError pwdStrengthLabel">
                 <button type="button" class="toggle-pass" data-target="signupPassword" aria-label="Show password">
                   <i class="bi bi-eye"></i>
                 </button>
               </div>
-              <span class="error-msg" id="signupPasswordError"></span>
+              <div class="pwd-strength" id="pwdStrength">
+                <div class="pwd-strength-bar"><span id="pwdStrengthFill"></span></div>
+                <div class="pwd-strength-label" id="pwdStrengthLabel">Password strength</div>
+                <ul class="pwd-hints" id="pwdHints">
+                  <li id="hintLen">At least 8 characters</li>
+                  <li id="hintLetter">Contains a letter</li>
+                  <li id="hintNumber">Contains a number</li>
+                  <li id="hintSpecial">Contains a special character (optional)</li>
+                </ul>
+              </div>
+              <span class="error-msg" id="signupPasswordError" role="alert"></span>
             </div>
 
             <div class="field">
-              <label for="signupConfirm">Confirm Password</label>
+              <label for="signupConfirm">Confirm Password <span aria-hidden="true" style="color:#c0392b">*</span></label>
               <div class="input-wrap">
                 <i class="bi bi-shield-lock input-icon"></i>
-                <input type="password" id="signupConfirm" name="confirm" placeholder="Repeat password" autocomplete="new-password" required>
+                <input type="password" id="signupConfirm" name="confirm" placeholder="Repeat password" autocomplete="new-password" required maxlength="72" aria-describedby="signupConfirmError">
                 <button type="button" class="toggle-pass" data-target="signupConfirm" aria-label="Show password">
                   <i class="bi bi-eye"></i>
                 </button>
               </div>
-              <span class="error-msg" id="signupConfirmError"></span>
+              <span class="error-msg" id="signupConfirmError" role="alert"></span>
             </div>
 
             <div class="field" style="margin-top:-4px;">
               <label class="remember" style="align-items:flex-start;gap:8px;">
-                <input type="checkbox" id="signupConsent" required style="margin-top:3px;">
-                <span style="font-size:0.8rem;line-height:1.4;">I agree to the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and understand my resume and interview answers are processed by AI services to give feedback.</span>
+                <input type="checkbox" id="signupConsent" required style="margin-top:3px;" aria-describedby="signupConsentError">
+                <span style="font-size:0.8rem;line-height:1.4;">I agree to the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and understand my resume and interview answers are processed by AI services to give feedback. <span aria-hidden="true" style="color:#c0392b">*</span></span>
               </label>
-              <span class="error-msg" id="signupConsentError"></span>
+              <span class="error-msg" id="signupConsentError" role="alert"></span>
             </div>
             <p class="auth-notice" id="signupNotice" role="status" style="display:none;font-size:0.85rem;color:#2B5748;background:#eaf3ee;border-radius:10px;padding:10px 12px;margin:0 0 12px;"></p>
 
@@ -1485,12 +1537,46 @@
       function showError(id, msg) {
         const el = document.getElementById(id);
         if (el) { el.textContent = msg; el.classList.add('show'); }
+        const inputId = id.replace(/Error$/, '');
+        const input = document.getElementById(inputId);
+        if (input && input.tagName !== 'INPUT' === false) {
+          /* handled below */
+        }
+        const map = {
+          signupNameError: 'signupName', signupEmailError: 'signupEmail', signupPhoneError: 'signupPhone',
+          signupPasswordError: 'signupPassword', signupConfirmError: 'signupConfirm',
+          loginEmailError: 'loginEmail', loginPasswordError: 'loginPassword'
+        };
+        const field = document.getElementById(map[id] || '');
+        if (field) {
+          field.classList.add('is-invalid');
+          field.classList.remove('is-valid');
+          field.setAttribute('aria-invalid', 'true');
+        }
       }
       function clearError(id) {
         const el = document.getElementById(id);
         if (el) { el.textContent = ''; el.classList.remove('show'); }
+        const map = {
+          signupNameError: 'signupName', signupEmailError: 'signupEmail', signupPhoneError: 'signupPhone',
+          signupPasswordError: 'signupPassword', signupConfirmError: 'signupConfirm',
+          loginEmailError: 'loginEmail', loginPasswordError: 'loginPassword'
+        };
+        const field = document.getElementById(map[id] || '');
+        if (field) {
+          field.classList.remove('is-invalid');
+          field.removeAttribute('aria-invalid');
+        }
       }
-      
+      function markValid(inputId) {
+        const field = document.getElementById(inputId);
+        if (field) {
+          field.classList.remove('is-invalid');
+          field.classList.add('is-valid');
+          field.setAttribute('aria-invalid', 'false');
+        }
+      }
+
       // Prefill email from ?email= (after password reset)
       try {
         var _qe = new URLSearchParams(location.search).get('email');
@@ -1500,9 +1586,140 @@
         }
       } catch (_) {}
 
-function isValidEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      function isValidEmail(email) {
+        return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(email);
       }
+      function isValidName(name) {
+        if (!name || name.length < 2) return false;
+        if (name.length > 80) return false;
+        // letters, spaces, apostrophe, hyphen, dots (for initials)
+        return /^[\p{L}\s.'’-]+$/u.test(name);
+      }
+      function isValidPhone(phone) {
+        if (!phone) return true; // optional
+        const digits = phone.replace(/\D/g, '');
+        return digits.length >= 10 && digits.length <= 15;
+      }
+      function passwordChecks(pw) {
+        return {
+          len: pw.length >= 8,
+          letter: /[a-zA-Z]/.test(pw),
+          number: /[0-9]/.test(pw),
+          special: /[^a-zA-Z0-9]/.test(pw),
+          max: pw.length <= 72
+        };
+      }
+      function passwordStrength(pw) {
+        const c = passwordChecks(pw);
+        let score = 0;
+        if (c.len) score++;
+        if (c.letter) score++;
+        if (c.number) score++;
+        if (c.special) score++;
+        if (pw.length >= 12) score++;
+        return Math.min(4, score);
+      }
+      function updatePasswordUI(pw) {
+        const box = document.getElementById('pwdStrength');
+        const fill = document.getElementById('pwdStrengthFill');
+        const label = document.getElementById('pwdStrengthLabel');
+        if (!box || !fill) return;
+        if (!pw) {
+          box.classList.remove('show');
+          return;
+        }
+        box.classList.add('show');
+        const c = passwordChecks(pw);
+        const score = passwordStrength(pw);
+        const widths = ['15%', '35%', '55%', '75%', '100%'];
+        const colors = ['#c0392b', '#e67e22', '#f1c40f', '#27ae60', '#1e8449'];
+        const texts = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
+        fill.style.width = widths[score] || '15%';
+        fill.style.background = colors[score] || colors[0];
+        label.textContent = 'Strength: ' + (texts[score] || texts[0]);
+        const setHint = (id, ok) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle('ok', !!ok);
+        };
+        setHint('hintLen', c.len);
+        setHint('hintLetter', c.letter);
+        setHint('hintNumber', c.number);
+        setHint('hintSpecial', c.special);
+      }
+
+      function validateSignupField(which) {
+        const name = document.getElementById('signupName').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const phone = (document.getElementById('signupPhone').value || '').trim();
+        const password = document.getElementById('signupPassword').value;
+        const confirm = document.getElementById('signupConfirm').value;
+        let ok = true;
+
+        if (!which || which === 'name') {
+          clearError('signupNameError');
+          if (!name) { showError('signupNameError', 'Full name is required'); ok = false; }
+          else if (!isValidName(name)) { showError('signupNameError', 'Enter a valid name (letters only, min 2 characters)'); ok = false; }
+          else markValid('signupName');
+        }
+        if (!which || which === 'email') {
+          clearError('signupEmailError');
+          if (!email) { showError('signupEmailError', 'Email is required'); ok = false; }
+          else if (!isValidEmail(email)) { showError('signupEmailError', 'Enter a valid email address'); ok = false; }
+          else markValid('signupEmail');
+        }
+        if (!which || which === 'phone') {
+          clearError('signupPhoneError');
+          if (phone && !isValidPhone(phone)) { showError('signupPhoneError', 'Enter a valid phone (10–15 digits)'); ok = false; }
+          else if (phone) markValid('signupPhone');
+          else {
+            const ph = document.getElementById('signupPhone');
+            if (ph) { ph.classList.remove('is-invalid', 'is-valid'); }
+          }
+        }
+        if (!which || which === 'password') {
+          clearError('signupPasswordError');
+          updatePasswordUI(password);
+          const c = passwordChecks(password);
+          if (!password) { showError('signupPasswordError', 'Password is required'); ok = false; }
+          else if (!c.max) { showError('signupPasswordError', 'Password must be at most 72 characters'); ok = false; }
+          else if (!c.len) { showError('signupPasswordError', 'Password must be at least 8 characters'); ok = false; }
+          else if (!c.letter || !c.number) { showError('signupPasswordError', 'Use letters and at least one number'); ok = false; }
+          else markValid('signupPassword');
+        }
+        if (!which || which === 'confirm') {
+          clearError('signupConfirmError');
+          if (!confirm) { showError('signupConfirmError', 'Please confirm your password'); ok = false; }
+          else if (password !== confirm) { showError('signupConfirmError', 'Passwords do not match'); ok = false; }
+          else markValid('signupConfirm');
+        }
+        if (!which || which === 'consent') {
+          clearError('signupConsentError');
+          if (!document.getElementById('signupConsent').checked) {
+            showError('signupConsentError', 'Please accept the Privacy Policy to continue');
+            ok = false;
+          }
+        }
+        return ok;
+      }
+
+      // Live validation on Create Account form
+      ['signupName', 'signupEmail', 'signupPhone', 'signupPassword', 'signupConfirm'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const key = id.replace('signup', '').toLowerCase();
+        const which = key === 'name' ? 'name' : key === 'email' ? 'email' : key === 'phone' ? 'phone' : key === 'password' ? 'password' : 'confirm';
+        el.addEventListener('blur', function () { validateSignupField(which); });
+        el.addEventListener('input', function () {
+          if (which === 'password') updatePasswordUI(el.value);
+          if (which === 'confirm' || which === 'password') {
+            const conf = document.getElementById('signupConfirm').value;
+            if (conf) validateSignupField('confirm');
+          }
+          if (el.classList.contains('is-invalid')) validateSignupField(which);
+        });
+      });
+      const consentEl = document.getElementById('signupConsent');
+      if (consentEl) consentEl.addEventListener('change', function () { validateSignupField('consent'); });
 
       loginForm.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -1514,6 +1731,7 @@ function isValidEmail(email) {
 
         if (!email) { showError('loginEmailError', 'Email is required'); valid = false; }
         else if (!isValidEmail(email)) { showError('loginEmailError', 'Please enter a valid email'); valid = false; }
+        else markValid('loginEmail');
         if (!password) { showError('loginPasswordError', 'Password is required'); valid = false; }
         if (!valid) return;
 
@@ -1542,29 +1760,20 @@ function isValidEmail(email) {
 
       signupForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        let valid = true;
         const name = document.getElementById('signupName').value.trim();
         const email = document.getElementById('signupEmail').value.trim();
-        const phone = (document.getElementById('signupPhone') || {}).value ? document.getElementById('signupPhone').value.trim() : '';
+        const phone = (document.getElementById('signupPhone').value || '').trim();
         const password = document.getElementById('signupPassword').value;
-        const confirm = document.getElementById('signupConfirm').value;
 
-        clearError('signupNameError');
-        clearError('signupEmailError');
-        clearError('signupPhoneError');
-        clearError('signupPasswordError');
-        clearError('signupConfirmError');
-
-        if (!name) { showError('signupNameError', 'Full name is required'); valid = false; }
-        if (!email) { showError('signupEmailError', 'Email is required'); valid = false; }
-        else if (!isValidEmail(email)) { showError('signupEmailError', 'Please enter a valid email'); valid = false; }
-        if (!password) { showError('signupPasswordError', 'Password is required'); valid = false; }
-        else if (password.length < 8) { showError('signupPasswordError', 'Password must be at least 8 characters'); valid = false; }
-        if (!confirm) { showError('signupConfirmError', 'Please confirm your password'); valid = false; }
-        else if (password !== confirm) { showError('signupConfirmError', 'Passwords do not match'); valid = false; }
-        clearError('signupConsentError');
-        if (!document.getElementById('signupConsent').checked) { showError('signupConsentError', 'Please accept the Privacy Policy to continue'); valid = false; }
-        if (!valid) return;
+        const valid = validateSignupField();
+        if (!valid) {
+          const firstErr = signupForm.querySelector('.is-invalid, .error-msg.show');
+          if (firstErr) {
+            const focusEl = signupForm.querySelector('input.is-invalid') || firstErr;
+            try { focusEl.focus(); } catch (_) {}
+          }
+          return;
+        }
 
         const btn = document.getElementById('signupBtn');
         btn.classList.add('loading');
@@ -1576,32 +1785,28 @@ function isValidEmail(email) {
             if (!DB.isConfigured()) {
               throw new Error('Could not load auth library. Check your connection and refresh.');
             }
-            {
-              const reg = await DB.register({ fullName: name, email, password, phone });
-              btn.classList.remove('loading');
-              btn.querySelector('.btn-text').textContent = 'Create Account';
-              // No email confirmation — go straight to dashboard when session exists
-              if (reg && reg.needsSignIn && !reg.id) {
-                const n = document.getElementById('signupNotice');
-                n.textContent = 'Account created! Please sign in with the same email and password.';
-                n.style.display = 'block';
-                try {
-                  document.getElementById('loginEmail').value = email;
-                } catch (_) {}
-                return;
-              }
-              successOverlay.classList.add('show');
-              setTimeout(() => {
-                successOverlay.classList.remove('show');
-                window.location.href = 'dashboard.html';
-              }, 1800);
+            const reg = await DB.register({ fullName: name, email, password, phone });
+            btn.classList.remove('loading');
+            btn.querySelector('.btn-text').textContent = 'Create Account';
+            if (reg && reg.needsSignIn && !reg.id) {
+              const n = document.getElementById('signupNotice');
+              n.textContent = 'Account created! Please sign in with the same email and password.';
+              n.style.display = 'block';
+              try { document.getElementById('loginEmail').value = email; } catch (_) {}
               return;
             }
+            successOverlay.classList.add('show');
+            setTimeout(() => {
+              successOverlay.classList.remove('show');
+              window.location.href = 'dashboard.html';
+            }, 1800);
           } catch (err) {
             btn.classList.remove('loading');
             btn.querySelector('.btn-text').textContent = 'Create Account';
             const msg = (err && err.message) || 'Sign up failed';
             if (/already exists|already registered|duplicate/i.test(msg)) showError('signupEmailError', 'Email already registered — please sign in');
+            else if (/password/i.test(msg)) showError('signupPasswordError', msg);
+            else if (/email/i.test(msg)) showError('signupEmailError', msg);
             else showError('signupConfirmError', msg);
           }
         })();
