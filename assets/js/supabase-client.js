@@ -182,49 +182,40 @@ const DB = {
     return s;
   },
 
-  // ---------- Users (login / register) via Supabase Auth ----------
+  // ---------- Users: direct public.users register/login (no Auth Email provider) ----------
   async register({ fullName, email, password, phone }) {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await sb.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: { full_name: fullName.trim(), phone: (phone && String(phone).trim()) || '' },
-        // No email confirmation required — user signs in immediately after register
-        emailRedirectTo: new URL('login.html', window.location.href).href
-      }
+    const { data, error } = await sb.rpc('register_user', {
+      p_email: cleanEmail,
+      p_password: password,
+      p_full_name: (fullName || '').trim(),
+      p_phone: (phone && String(phone).trim()) || null
     });
     if (error) {
-      if (/already|registered/i.test(error.message)) throw new Error('An account with this email already exists. Please sign in.');
+      const m = String(error.message || '');
+      if (/already|registered|duplicate|unique/i.test(m)) {
+        throw new Error('An account with this email already exists. Please sign in.');
+      }
+      if (/function.*register_user.*does not exist/i.test(m)) {
+        throw new Error('Database not ready. Run supabase/custom_auth_users_table.sql in the SQL Editor.');
+      }
       throw new Error(error.message || 'Sign up failed');
     }
-    // Supabase hides "already registered" when confirmations are on: identities is empty
-    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      throw new Error('An account with this email already exists. Please sign in.');
+    const row = data && typeof data === 'object' ? data : null;
+    if (!row || row.ok === false) {
+      throw new Error((row && row.error) || 'Sign up failed');
     }
-
-    // Prefer immediate session (Confirm email = OFF in Supabase Dashboard).
-    // If project still has confirm ON, try password sign-in so the user is not blocked.
-    let session = data.session;
-    let userRow = data.user;
-    if (!session) {
-      try {
-        const signed = await sb.auth.signInWithPassword({ email: cleanEmail, password });
-        if (signed && signed.data && signed.data.session) {
-          session = signed.data.session;
-          userRow = signed.data.user || userRow;
-        }
-      } catch (_) {}
-    }
-    if (!session || !userRow) {
-      // Last resort: still created — ask them to sign in (only if Confirm email is ON in Dashboard)
-      return { needsConfirmation: false, email: cleanEmail, needsSignIn: true };
-    }
-
-    const user = { id: userRow.id, full_name: fullName.trim(), email: cleanEmail, role: 'candidate' };
+    const user = {
+      id: row.id,
+      full_name: row.full_name || (fullName || '').trim(),
+      email: row.email || cleanEmail,
+      role: row.role || 'candidate'
+    };
     this.setSession(user);
+    // Optional JWT for RLS if auth.users was mirrored by the RPC
+    try { await sb.auth.signInWithPassword({ email: cleanEmail, password }); } catch (_) {}
     try {
       if (window.Utils && Utils.setCredits) {
         Utils.setCredits(100);
@@ -242,9 +233,43 @@ const DB = {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
     const em = email.trim().toLowerCase();
+
+    // Primary: public.users via login_user RPC
+    let row = null;
+    try {
+      const res = await sb.rpc('login_user', { p_email: em, p_password: password });
+      if (res.error) {
+        const m = String(res.error.message || '');
+        if (/function.*login_user.*does not exist/i.test(m)) {
+          // fall through to Auth below
+        } else {
+          throw new Error(res.error.message || 'Sign in failed');
+        }
+      } else {
+        row = res.data && typeof res.data === 'object' ? res.data : null;
+        if (row && row.ok === false) {
+          throw new Error(row.error || 'Invalid email or password.');
+        }
+      }
+    } catch (e) {
+      if (e && e.message && !/function.*does not exist/i.test(e.message)) throw e;
+    }
+
+    if (row && row.ok) {
+      const user = {
+        id: row.id,
+        full_name: row.full_name || em.split('@')[0],
+        email: row.email || em,
+        role: row.role || 'candidate'
+      };
+      this.setSession(user);
+      try { await sb.auth.signInWithPassword({ email: em, password }); } catch (_) {}
+      try { await this.hydrateLocalFromCloud(); } catch (e) { console.warn('hydrate', e); }
+      return user;
+    }
+
+    // Fallback: Supabase Auth (legacy accounts)
     let { data, error } = await sb.auth.signInWithPassword({ email: em, password });
-    // Old accounts (created by the previous custom login) exist only in public.users.
-    // If the old password is right, the server creates the Auth account, then we sign in again.
     if (error && /invalid login credentials/i.test(String(error.message || ''))) {
       try {
         const mig = await sb.rpc('migrate_legacy_login', { p_email: em, p_password: password });
@@ -255,7 +280,6 @@ const DB = {
     }
     if (error) {
       const m = String(error.message || '');
-      // Confirm email is disabled for this app — treat residual "not confirmed" as a soft auth error
       if (/not confirmed/i.test(m)) throw new Error('Account not ready yet. Wait a few seconds and try signing in again.');
       if (/invalid login credentials/i.test(m)) throw new Error('Invalid email or password. Forgot it? Use “Forgot password?”.');
       if (/rate limit|too many|over_request/i.test(m) || error.status === 429) throw new Error('Too many attempts. Wait a few minutes and try again.');
@@ -273,7 +297,7 @@ const DB = {
       prof = r.data;
     } catch (_) {}
     if (prof && prof.is_active === false) {
-      await sb.auth.signOut();
+      try { await sb.auth.signOut(); } catch (_) {}
       throw new Error('This account has been disabled.');
     }
     const user = {

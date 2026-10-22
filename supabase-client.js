@@ -187,39 +187,34 @@ const DB = {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await sb.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: { full_name: fullName.trim(), phone: (phone && String(phone).trim()) || '' },
-        emailRedirectTo: new URL('login.html', window.location.href).href
-      }
+    const { data, error } = await sb.rpc('register_user', {
+      p_email: cleanEmail,
+      p_password: password,
+      p_full_name: (fullName || '').trim(),
+      p_phone: (phone && String(phone).trim()) || null
     });
     if (error) {
-      if (/already|registered/i.test(error.message)) throw new Error('An account with this email already exists. Please sign in.');
+      const m = String(error.message || '');
+      if (/already|registered|duplicate|unique/i.test(m)) {
+        throw new Error('An account with this email already exists. Please sign in.');
+      }
+      if (/function.*register_user.*does not exist/i.test(m)) {
+        throw new Error('Database not ready. Run supabase/custom_auth_users_table.sql in the SQL Editor.');
+      }
       throw new Error(error.message || 'Sign up failed');
     }
-    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      throw new Error('An account with this email already exists. Please sign in.');
+    const row = data && typeof data === 'object' ? data : null;
+    if (!row || row.ok === false) {
+      throw new Error((row && row.error) || 'Sign up failed');
     }
-    // Confirm email should be OFF in Dashboard — session comes back on signUp.
-    // If not, try immediate password sign-in so the user is not blocked.
-    let session = data.session;
-    let userRow = data.user;
-    if (!session) {
-      try {
-        const signed = await sb.auth.signInWithPassword({ email: cleanEmail, password });
-        if (signed && signed.data && signed.data.session) {
-          session = signed.data.session;
-          userRow = signed.data.user || userRow;
-        }
-      } catch (_) {}
-    }
-    if (!session || !userRow) {
-      return { needsConfirmation: false, email: cleanEmail, needsSignIn: true };
-    }
-    const user = { id: userRow.id, full_name: fullName.trim(), email: cleanEmail, role: 'candidate' };
+    const user = {
+      id: row.id,
+      full_name: row.full_name || (fullName || '').trim(),
+      email: row.email || cleanEmail,
+      role: row.role || 'candidate'
+    };
     this.setSession(user);
+    try { await sb.auth.signInWithPassword({ email: cleanEmail, password }); } catch (_) {}
     try {
       if (window.Utils && Utils.setCredits) {
         Utils.setCredits(100);
@@ -236,24 +231,39 @@ const DB = {
   async login({ email, password }) {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
-    const { data, error } = await sb.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password
-    });
+    const em = email.trim().toLowerCase();
+    let row = null;
+    try {
+      const res = await sb.rpc('login_user', { p_email: em, p_password: password });
+      if (!res.error && res.data && res.data.ok) row = res.data;
+      else if (res.data && res.data.ok === false) throw new Error(res.data.error || 'Invalid email or password.');
+    } catch (e) {
+      if (e && e.message && !/function.*does not exist/i.test(e.message)) throw e;
+    }
+    if (row && row.ok) {
+      const user = {
+        id: row.id,
+        full_name: row.full_name || em.split('@')[0],
+        email: row.email || em,
+        role: row.role || 'candidate'
+      };
+      this.setSession(user);
+      try { await sb.auth.signInWithPassword({ email: em, password }); } catch (_) {}
+      return user;
+    }
+    const { data, error } = await sb.auth.signInWithPassword({ email: em, password });
     if (error) {
-      if (/not confirmed/i.test(error.message)) throw new Error('Account not ready yet. Wait a few seconds and try signing in again.');
+      if (/not confirmed/i.test(error.message || '')) throw new Error('Account not ready yet. Try again in a moment.');
       throw new Error('Invalid email or password');
     }
     const au = data.user;
     let prof = null;
     try {
-      const r = await sb.from('users')
-        .select('id, full_name, email, role, is_active')
-        .eq('id', au.id).maybeSingle();
+      const r = await sb.from('users').select('id, full_name, email, role, is_active').eq('id', au.id).maybeSingle();
       prof = r.data;
     } catch (_) {}
     if (prof && prof.is_active === false) {
-      await sb.auth.signOut();
+      try { await sb.auth.signOut(); } catch (_) {}
       throw new Error('This account has been disabled.');
     }
     const user = {
@@ -263,8 +273,6 @@ const DB = {
       role: (prof && prof.role) || 'candidate'
     };
     this.setSession(user);
-    try { await sb.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', au.id); } catch (_) {}
-    try { await this.hydrateLocalFromCloud(); } catch (e) { console.warn('hydrate', e); }
     return user;
   },
 
