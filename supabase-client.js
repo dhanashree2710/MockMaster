@@ -199,15 +199,26 @@ const DB = {
       if (/already|registered/i.test(error.message)) throw new Error('An account with this email already exists. Please sign in.');
       throw new Error(error.message || 'Sign up failed');
     }
-    // Supabase hides "already registered" when confirmations are on: identities is empty
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       throw new Error('An account with this email already exists. Please sign in.');
     }
-    // Email confirmation ON  -> no session yet
-    if (!data.session) {
-      return { needsConfirmation: true, email: cleanEmail };
+    // Confirm email should be OFF in Dashboard — session comes back on signUp.
+    // If not, try immediate password sign-in so the user is not blocked.
+    let session = data.session;
+    let userRow = data.user;
+    if (!session) {
+      try {
+        const signed = await sb.auth.signInWithPassword({ email: cleanEmail, password });
+        if (signed && signed.data && signed.data.session) {
+          session = signed.data.session;
+          userRow = signed.data.user || userRow;
+        }
+      } catch (_) {}
     }
-    const user = { id: data.user.id, full_name: fullName.trim(), email: cleanEmail, role: 'candidate' };
+    if (!session || !userRow) {
+      return { needsConfirmation: false, email: cleanEmail, needsSignIn: true };
+    }
+    const user = { id: userRow.id, full_name: fullName.trim(), email: cleanEmail, role: 'candidate' };
     this.setSession(user);
     try {
       if (window.Utils && Utils.setCredits) {
@@ -230,7 +241,7 @@ const DB = {
       password
     });
     if (error) {
-      if (/not confirmed/i.test(error.message)) throw new Error('Please confirm your email first — check your inbox.');
+      if (/not confirmed/i.test(error.message)) throw new Error('Account not ready yet. Wait a few seconds and try signing in again.');
       throw new Error('Invalid email or password');
     }
     const au = data.user;

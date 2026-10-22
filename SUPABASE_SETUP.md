@@ -21,17 +21,24 @@ SQL Editor → paste the **whole** `supabase/schema.sql` → Run.
 | Setting | Value |
 |---|---|
 | Providers → Email | enabled |
-| Confirm email | ON is recommended (the app handles it). OFF = instant sign-in. |
+| **Confirm email** | **OFF** (required) — users sign in immediately after create account; no confirmation email |
 | URL Configuration → Site URL | your hosted HTTPS URL, e.g. `https://app.yourdomain.com` |
-| URL Configuration → Site URL | your hosted HTTPS URL, e.g. `https://app.yourdomain.com` |
-| URL Configuration → Redirect URLs | include `https://app.yourdomain.com/pages/login.html` (used by the sign-up confirmation email) |
+| URL Configuration → Redirect URLs | include `https://app.yourdomain.com/pages/login.html` |
 | Password strength | min length 8 (match the app) |
 | Rate limits / CAPTCHA | turn on CAPTCHA (hCaptcha/Turnstile) if you see sign-up abuse |
+
+### Turn off email confirmation (do this once)
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project  
+2. **Authentication** → **Providers** → **Email**  
+3. Disable **“Confirm email”** (or “Enable email confirmations”)  
+4. Save  
+
+Without this, new users get no session until they open a link in their inbox.
 
 **Forgot password** (email + new password) — run `supabase/schema.sql` once (see PASSWORD_RESET_GUIDE.md).
 
 ## 4. Test checklist (do this before submitting)
-1. Sign up → (confirm email) → sign in → dashboard loads.
+1. Sign up → land on dashboard immediately (no email confirm step).
 2. Upload a resume → refresh → it is still there (proves insert/select RLS works).
 3. Second account: confirm it can **not** see the first account's data.
 4. Settings → Delete account → you are signed out; the user is gone from

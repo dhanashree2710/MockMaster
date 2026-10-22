@@ -192,6 +192,7 @@ const DB = {
       password,
       options: {
         data: { full_name: fullName.trim(), phone: (phone && String(phone).trim()) || '' },
+        // No email confirmation required — user signs in immediately after register
         emailRedirectTo: new URL('login.html', window.location.href).href
       }
     });
@@ -203,11 +204,26 @@ const DB = {
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       throw new Error('An account with this email already exists. Please sign in.');
     }
-    // Email confirmation ON  -> no session yet
-    if (!data.session) {
-      return { needsConfirmation: true, email: cleanEmail };
+
+    // Prefer immediate session (Confirm email = OFF in Supabase Dashboard).
+    // If project still has confirm ON, try password sign-in so the user is not blocked.
+    let session = data.session;
+    let userRow = data.user;
+    if (!session) {
+      try {
+        const signed = await sb.auth.signInWithPassword({ email: cleanEmail, password });
+        if (signed && signed.data && signed.data.session) {
+          session = signed.data.session;
+          userRow = signed.data.user || userRow;
+        }
+      } catch (_) {}
     }
-    const user = { id: data.user.id, full_name: fullName.trim(), email: cleanEmail, role: 'candidate' };
+    if (!session || !userRow) {
+      // Last resort: still created — ask them to sign in (only if Confirm email is ON in Dashboard)
+      return { needsConfirmation: false, email: cleanEmail, needsSignIn: true };
+    }
+
+    const user = { id: userRow.id, full_name: fullName.trim(), email: cleanEmail, role: 'candidate' };
     this.setSession(user);
     try {
       if (window.Utils && Utils.setCredits) {
@@ -239,7 +255,8 @@ const DB = {
     }
     if (error) {
       const m = String(error.message || '');
-      if (/not confirmed/i.test(m)) throw new Error('Please confirm your email first — check your inbox.');
+      // Confirm email is disabled for this app — treat residual "not confirmed" as a soft auth error
+      if (/not confirmed/i.test(m)) throw new Error('Account not ready yet. Wait a few seconds and try signing in again.');
       if (/invalid login credentials/i.test(m)) throw new Error('Invalid email or password. Forgot it? Use “Forgot password?”.');
       if (/rate limit|too many|over_request/i.test(m) || error.status === 429) throw new Error('Too many attempts. Wait a few minutes and try again.');
       if (/banned|disabled/i.test(m)) throw new Error('This account has been disabled.');

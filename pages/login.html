@@ -1580,10 +1580,14 @@ function isValidEmail(email) {
               const reg = await DB.register({ fullName: name, email, password, phone });
               btn.classList.remove('loading');
               btn.querySelector('.btn-text').textContent = 'Create Account';
-              if (reg && reg.needsConfirmation) {
+              // No email confirmation — go straight to dashboard when session exists
+              if (reg && reg.needsSignIn && !reg.id) {
                 const n = document.getElementById('signupNotice');
-                n.textContent = 'Account created! We sent a confirmation link to ' + reg.email + '. Open it, then come back and sign in.';
+                n.textContent = 'Account created! Please sign in with the same email and password.';
                 n.style.display = 'block';
+                try {
+                  document.getElementById('loginEmail').value = email;
+                } catch (_) {}
                 return;
               }
               successOverlay.classList.add('show');
