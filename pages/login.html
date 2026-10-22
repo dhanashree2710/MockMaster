@@ -1283,7 +1283,7 @@
               <label for="signupPhone">Phone Number <span class="text-muted" style="font-weight:500;font-size:0.75rem;">(optional)</span></label>
               <div class="input-wrap">
                 <i class="bi bi-telephone input-icon"></i>
-                <input type="tel" id="signupPhone" name="phone" placeholder="+91 98765 43210" autocomplete="tel" maxlength="20" inputmode="tel" aria-describedby="signupPhoneError">
+                <input type="tel" id="signupPhone" name="phone" placeholder="9876543210" autocomplete="tel" maxlength="15" pattern="[0-9+\s-]*" inputmode="tel" aria-describedby="signupPhoneError">
               </div>
               <span class="error-msg" id="signupPhoneError" role="alert"></span>
             </div>
@@ -1595,10 +1595,17 @@
         // letters, spaces, apostrophe, hyphen, dots (for initials)
         return /^[\p{L}\s.'’-]+$/u.test(name);
       }
+      function normalizePhoneDigits(phone) {
+        let digits = String(phone || '').replace(/\D/g, '');
+        // Strip country code 91 or leading 0
+        if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+        if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+        return digits;
+      }
       function isValidPhone(phone) {
-        if (!phone) return true; // optional
-        const digits = phone.replace(/\D/g, '');
-        return digits.length >= 10 && digits.length <= 15;
+        if (!phone || !String(phone).trim()) return true; // optional
+        const digits = normalizePhoneDigits(phone);
+        return digits.length === 10;
       }
       function passwordChecks(pw) {
         return {
@@ -1669,7 +1676,7 @@
         }
         if (!which || which === 'phone') {
           clearError('signupPhoneError');
-          if (phone && !isValidPhone(phone)) { showError('signupPhoneError', 'Enter a valid phone (10–15 digits)'); ok = false; }
+          if (phone && !isValidPhone(phone)) { showError('signupPhoneError', 'Enter a valid 10-digit phone number'); ok = false; }
           else if (phone) markValid('signupPhone');
           else {
             const ph = document.getElementById('signupPhone');
@@ -1762,10 +1769,11 @@
         e.preventDefault();
         const name = document.getElementById('signupName').value.trim();
         const email = document.getElementById('signupEmail').value.trim();
-        const phone = (document.getElementById('signupPhone').value || '').trim();
+        let phone = (document.getElementById('signupPhone').value || '').trim();
         const password = document.getElementById('signupPassword').value;
 
         const valid = validateSignupField();
+        if (phone) phone = normalizePhoneDigits(phone); // store as 10 digits
         if (!valid) {
           const firstErr = signupForm.querySelector('.is-invalid, .error-msg.show');
           if (firstErr) {

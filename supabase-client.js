@@ -187,11 +187,13 @@ const DB = {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await sb.rpc('register_user', {
-      p_email: cleanEmail,
-      p_password: password,
-      p_full_name: (fullName || '').trim(),
-      p_phone: (phone && String(phone).trim()) || null
+    const { data, error } = await this._rpc('mm_register', {
+      payload: {
+        email: cleanEmail,
+        full_name: (fullName || '').trim(),
+        password: password,
+        phone: (phone && String(phone).trim()) || null
+      }
     });
     if (error) {
       const m = String(error.message || '');
@@ -234,7 +236,7 @@ const DB = {
     const em = email.trim().toLowerCase();
     let row = null;
     try {
-      const res = await sb.rpc('login_user', { p_email: em, p_password: password });
+      const res = await sb.rpc('mm_login', { payload: { email: em, password: password } });
       if (!res.error && res.data && res.data.ok) row = res.data;
       else if (res.data && res.data.ok === false) throw new Error(res.data.error || 'Invalid email or password.');
     } catch (e) {

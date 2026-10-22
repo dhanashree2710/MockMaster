@@ -163,6 +163,10 @@ const DB = {
   },
   /** true if a real Supabase session exists (token valid / refreshable) */
   async verifySession() {
+    try {
+      const local = this.getSession();
+      if (local && local.userId && local.userId !== 'demo') return true;
+    } catch (_) {}
     const sb = getSupabase();
     if (!sb) return false;
     try {
@@ -182,24 +186,68 @@ const DB = {
     return s;
   },
 
+
+  /** Call RPC via supabase-js, then raw REST if schema-cache misses the function */
+  async _rpc(name, args) {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Service unavailable. Please try again later.');
+    try {
+      const res = await sb.rpc(name, args);
+      if (res.error) {
+        const m = String(res.error.message || '');
+        if (/schema cache|could not find the function/i.test(m)) {
+          // fall through to REST
+        } else {
+          return res;
+        }
+      } else {
+        return res;
+      }
+    } catch (e) {
+      const m = String((e && e.message) || e || '');
+      if (!/schema cache|could not find the function/i.test(m)) throw e;
+    }
+    // Direct PostgREST call (same project URL + anon key)
+    const url = SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + encodeURIComponent(name);
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify(args)
+    });
+    const textBody = await r.text();
+    let data = null;
+    try { data = textBody ? JSON.parse(textBody) : null; } catch (_) { data = textBody; }
+    if (!r.ok) {
+      const msg = (data && (data.message || data.error || data.hint)) || textBody || ('RPC failed ' + r.status);
+      return { data: null, error: { message: msg } };
+    }
+    return { data, error: null };
+  },
+
   // ---------- Users: direct public.users register/login (no Auth Email provider) ----------
   async register({ fullName, email, password, phone }) {
     const sb = getSupabase();
     if (!sb) throw new Error('Service unavailable. Please try again later.');
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await sb.rpc('register_user', {
-      p_email: cleanEmail,
-      p_password: password,
-      p_full_name: (fullName || '').trim(),
-      p_phone: (phone && String(phone).trim()) || null
+    const { data, error } = await this._rpc('mm_register', {
+      payload: {
+        email: cleanEmail,
+        full_name: (fullName || '').trim(),
+        password: password,
+        phone: (phone && String(phone).trim()) || null
+      }
     });
     if (error) {
       const m = String(error.message || '');
       if (/already|registered|duplicate|unique/i.test(m)) {
         throw new Error('An account with this email already exists. Please sign in.');
       }
-      if (/function.*register_user.*does not exist/i.test(m)) {
-        throw new Error('Database not ready. Run supabase/custom_auth_users_table.sql in the SQL Editor.');
+      if (/function.*(register_user|mm_register).*does not exist|schema cache/i.test(m)) {
+        throw new Error('Database not ready: run supabase/FIX_REGISTER_NOW.sql in Supabase SQL Editor, then wait a few seconds and retry.');
       }
       throw new Error(error.message || 'Sign up failed');
     }
@@ -237,7 +285,7 @@ const DB = {
     // Primary: public.users via login_user RPC
     let row = null;
     try {
-      const res = await sb.rpc('login_user', { p_email: em, p_password: password });
+      const res = await this._rpc('mm_login', { payload: { email: em, password: password } });
       if (res.error) {
         const m = String(res.error.message || '');
         if (/function.*login_user.*does not exist/i.test(m)) {

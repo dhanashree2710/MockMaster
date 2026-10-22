@@ -19,12 +19,17 @@
   }
 
   function isLoggedIn() {
-    // Need BOTH the local profile marker and a real Supabase Auth token.
+    // public.users auth: mm_session with userId is enough (no Supabase Auth token required)
     try {
       const raw = localStorage.getItem('mm_session');
       if (raw) {
         const p = JSON.parse(raw);
-        if (p && p.userId && p.userId !== 'demo' && hasAuthToken()) return true;
+        if (p && p.userId && p.userId !== 'demo') return true;
+      }
+      const u = localStorage.getItem('ipa_user');
+      if (u) {
+        const parsed = JSON.parse(u);
+        if (parsed && (parsed.id || parsed.email) && parsed.loggedIn !== false) return true;
       }
     } catch (_) {}
     return false;
@@ -152,10 +157,13 @@
     if (!PUBLIC.includes(page) && !isLoggedIn()) {
       showLoginPopup();
     } else if (!PUBLIC.includes(page) && window.DB && typeof DB.verifySession === 'function') {
-      // Token may have expired / been revoked (e.g. account deleted elsewhere)
       DB.verifySession().then((ok) => {
-        if (!ok) { wipeLocal(); showLoginPopup(); }
-      });
+        // Only force login if we truly have no local session
+        if (ok === false && !isLoggedIn()) {
+          wipeLocal();
+          showLoginPopup();
+        }
+      }).catch(function () {});
     }
     bindLogoutButtons();
   });
