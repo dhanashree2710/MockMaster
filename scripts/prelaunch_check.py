@@ -37,7 +37,7 @@ SCAN = HTML + JS + ['manifest.webmanifest', 'twa/twa-manifest.json', '.well-know
 
 # --fix also repairs protected pages that load auth-guard but not the Supabase client
 if FIX:
-    PUBLIC_FIX = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html'}
+    PUBLIC_FIX = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html', 'reset-password.html'}
     CDN_SB = '<script src="/vendor/supabase/supabase.js"></script>'
     for f in HTML:
         if os.path.basename(f) in PUBLIC_FIX: continue
@@ -134,7 +134,7 @@ say('FAIL' if nosafe else 'PASS', 'safe-html.js on every page' if not nosafe els
 
 
 # 6b. script load order + login-guard coverage
-PUBLIC_PAGES = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html'}
+PUBLIC_PAGES = {'index.html', 'login.html', 'register.html', 'privacy.html', 'delete-account.html', 'forgot-password.html', 'reset-password.html'}
 order = []
 for f in HTML:
     srcs = re.findall(r'<script[^>]+src="([^"]+)"', read(f))
@@ -209,6 +209,20 @@ hdr = read('_headers') if os.path.exists('_headers') else ''
 say('PASS' if 'Content-Security-Policy' in hdr else 'WARN', 'CSP/security headers file present' if 'Content-Security-Policy' in hdr else '_headers has no CSP')
 vc = tw_json.get('appVersionCode') if 'tw_json' in dir() else None
 say('PASS' if isinstance(vc, int) and vc >= 1 else 'WARN', f'appVersionCode = {vc}')
+
+
+# 9. payments: server-verified, live key
+_cfg = read('assets/js/config.js'); _ut = read('assets/js/utils.js'); _sc = read('supabase/schema.sql') if os.path.exists('supabase/schema.sql') else ''
+_have_fn = all(os.path.exists(f'supabase/functions/{n}/index.ts') for n in ('razorpay-order', 'razorpay-verify'))
+say('PASS' if _have_fn and 'razorpay-verify' in _ut else 'FAIL', 'Payments are verified server-side (razorpay-order + razorpay-verify)' if _have_fn and 'razorpay-verify' in _ut else 'Payment verification functions missing / not used by utils.js')
+say('PASS' if 'reward_purchases' in _sc else 'FAIL', 'reward_purchases table + RLS in schema.sql' if 'reward_purchases' in _sc else 'schema.sql lacks reward_purchases')
+_k = re.search(r"razorpayKeyId:\s*'([^']*)'", _cfg)
+if _k and _k.group(1).startswith('rzp_live_'):
+    say('PASS', 'Razorpay LIVE key id configured')
+else:
+    say('WARN' if ALLOW_PH else 'FAIL', 'Razorpay key is a TEST key (python3 scripts/configure.py --razorpay-key rzp_live_...)')
+_play = re.search(r'paidUnlocksInPlayApp:\s*(true|false)', _cfg)
+say('PASS' if _play and _play.group(1) == 'false' else 'WARN', 'Paid unlocks disabled inside the Play app (Play Billing policy)' if _play and _play.group(1) == 'false' else 'paidUnlocksInPlayApp is true: make sure Play Billing / alternative billing is implemented')
 
 print(f"\nSummary: {res['PASS']} pass, {res['WARN']} warn, {res['FAIL']} fail")
 sys.exit(1 if res['FAIL'] else 0)

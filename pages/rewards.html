@@ -186,6 +186,7 @@
 
     function renderCatalog() {
       const owned = Utils.getRedeemed();
+      const playApp = Utils.isPlayApp() && !(window.APP_CONFIG && APP_CONFIG.paidUnlocksInPlayApp);
       const bal = Utils.getCredits();
       document.getElementById('rewardsGrid').innerHTML = REWARDS.map(r => {
         const isOwned = owned.includes(r.id);
@@ -199,12 +200,14 @@
               </div>
               <h5 class="fw-bold mb-2">${r.title}</h5>
               <p class="text-muted small mb-2">${r.desc}</p>
-              <p class="small mb-3" style="color:var(--primary);font-weight:600;"><i class="bi bi-shield-lock me-1"></i>Price: ₹${price} · Pay via Razorpay (UPI / Card / Netbanking)</p>
+              <p class="small mb-3" style="color:var(--primary);font-weight:600;"><i class="bi bi-shield-lock me-1"></i>Price: ₹${price}${playApp ? '' : ' · Pay via Razorpay (UPI / Card / Netbanking)'}</p>
               ${isOwned
                 ? `<a class="btn-redeem text-center text-decoration-none" href="${r.href}"><i class="bi bi-play-fill me-1"></i> Open</a>`
-                : `<button type="button" class="btn-redeem" data-id="${r.id}">
+                : (playApp
+                  ? `<div class="text-muted small text-center">Available on the MockMaster website</div>`
+                  : `<button type="button" class="btn-redeem" data-id="${r.id}">
                     <i class="bi bi-credit-card me-1"></i> Pay ₹${price}
-                  </button>`}
+                  </button>`)}
             </div>
           </div>`;
       }).join('');
@@ -283,6 +286,9 @@
     refreshBalance();
     renderCatalog();
     renderHistory();
+    if (window.DB && DB.refreshEntitlements) {
+      DB.refreshEntitlements().then(function () { renderCatalog(); }).catch(function () {});
+    }
   </script>
   <script src="../assets/js/auth-guard.js"></script>
   <script src="../assets/js/app.js"></script>

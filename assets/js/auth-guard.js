@@ -162,6 +162,19 @@
         if (ok === false && !isLoggedIn()) {
           wipeLocal();
           showLoginPopup();
+          return;
+        }
+        // Paid features: re-check what the SERVER says is unlocked (local data can be edited).
+        if (ok !== false && /\/pages\/rewards/.test(window.location.pathname) && typeof DB.refreshEntitlements === 'function') {
+          let before = '[]';
+          try { before = JSON.stringify((JSON.parse(localStorage.getItem('mm_redeemed') || '[]') || []).slice().sort()); } catch (_) {}
+          DB.refreshEntitlements().then((ids) => {
+            const after = JSON.stringify((ids || []).slice().sort());
+            if (after !== before && !sessionStorage.getItem('mm_ent_reloaded')) {
+              sessionStorage.setItem('mm_ent_reloaded', '1');
+              window.location.reload();
+            }
+          }).catch(function () {});
         }
       }).catch(function () {});
     }

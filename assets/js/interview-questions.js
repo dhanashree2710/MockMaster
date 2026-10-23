@@ -676,14 +676,15 @@
       ], { type: 'resume', level: 'basic', domain: domain });
     }
     if (projects.length && questions.length < num) {
-      const projList = [];
-      projects.slice(0, 4).forEach(function (proj) {
+      projects.slice(0, num >= 8 ? 2 : 1).forEach(function (proj) {
         const withTech = proj.tech ? ' using ' + proj.tech : '';
-        projList.push('You listed a project called "' + proj.name + '"' + withTech + '. Walk me through your role, the problem you solved, and the result.');
-        projList.push('Tell me about the "' + proj.name + '" project' + withTech + '. What was the hardest part, and how did you handle it?');
-        projList.push('In your "' + proj.name + '" project, what would you do differently if you rebuilt it today?');
+        const projList = [
+          'You listed a project called "' + proj.name + '"' + withTech + '. Walk me through your role, the problem you solved, and the result.',
+          'Tell me about the "' + proj.name + '" project' + withTech + '. What was the hardest part, and how did you handle it?',
+          'In your "' + proj.name + '" project, what would you do differently if you rebuilt it today?'
+        ];
+        variant(projList, { type: 'project', level: 'intermediate', domain: domain, basedOn: proj.name });
       });
-      variant(projList, { type: 'project', level: 'intermediate', domain: domain });
     }
 
     // 3) JD + resume skill questions (majority of interview)

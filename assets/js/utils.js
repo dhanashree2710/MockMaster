@@ -143,13 +143,23 @@ Utils.getCreditsHistory = function () {
 Utils.getRedeemed = function () {
   return this.getStored(REDEEMED_KEY, []);
 };
+/* Local cache of unlocked rewards. The real source of truth is the server table
+ * reward_purchases (written only after Razorpay payment verification);
+ * DB.refreshEntitlements() overwrites this cache from it on every sync. */
 Utils.markRedeemed = function (id) {
   const list = this.getRedeemed();
   if (!list.includes(id)) {
     list.push(id);
     this.setStored(REDEEMED_KEY, list);
-    try { if (window.DB && DB.syncRedeemedToCloud) DB.syncRedeemedToCloud(list); } catch (_) {}
   }
+};
+
+/** True when running inside the Google Play (TWA) app. */
+Utils.isPlayApp = function () {
+  try {
+    if (/^android-app:\/\//.test(document.referrer || '')) localStorage.setItem('mm_twa', '1');
+    return localStorage.getItem('mm_twa') === '1';
+  } catch (_) { return false; }
 };
 
 /* ---- Rewards catalog (single source of truth) ----
@@ -204,84 +214,98 @@ Utils.loadRazorpay = function () {
 };
 
 /**
- * Open Razorpay Checkout for a reward. Amount in ₹ (converted to paise).
+ * Pay for a reward. Flow: server creates the order (server decides the price) ->
+ * Razorpay Checkout -> server verifies the signature + payment -> unlock.
  * Resolves { ok, paymentId, reward, price } on success; { ok:false, cancelled|error } otherwise.
  */
+Utils.functionsBase = function () {
+  var u = (window.APP_CONFIG && APP_CONFIG.aiProxyUrl) || '';
+  return u.replace(/\/ai-chat\/?$/, '');
+};
+Utils.callPaymentFn = async function (name, body) {
+  var token = window.DB && DB.getAccessToken ? await DB.getAccessToken() : null;
+  if (!token) throw new Error('Please sign in again to continue.');
+  var base = Utils.functionsBase();
+  if (!base) throw new Error('Payments are not configured.');
+  var res = await fetch(base + '/' + name, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify(body)
+  });
+  var data = {};
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(data.error || 'Payment service error (' + res.status + ')');
+  return data;
+};
+
 Utils.payWithRazorpay = function (rewardId) {
   var r = Utils.getReward(rewardId);
   if (!r) return Promise.resolve({ ok: false, error: 'Unknown reward.' });
   if (Utils.getRedeemed().includes(rewardId)) {
     return Promise.resolve({ ok: true, already: true, reward: r, price: 0 });
   }
-  var price = Utils.rewardPrice(r);
-  var key = Utils.getRazorpayKey();
-  if (!key) {
-    return Promise.resolve({ ok: false, error: 'Payment not configured. Razorpay Key ID missing.' });
+  if (Utils.isPlayApp() && !(window.APP_CONFIG && APP_CONFIG.paidUnlocksInPlayApp)) {
+    return Promise.resolve({ ok: false, error: 'Paid reports are available on the MockMaster website, not in the Android app.' });
   }
-
+  var price = Utils.rewardPrice(r);
   var user = {};
   try { user = Utils.getUser() || {}; } catch (_) {}
 
-  return Utils.loadRazorpay().then(function (Razorpay) {
-    return new Promise(function (resolve) {
-      var options = {
-        key: key,
-        amount: Math.round(price * 100), // paise
-        currency: (window.APP_CONFIG && APP_CONFIG.razorpayCurrency) || 'INR',
-        name: (window.APP_CONFIG && (APP_CONFIG.companyName || APP_CONFIG.name)) || 'MockMaster',
-        description: r.title + ' — ₹' + price,
-        image: '../assets/images/icon-192.png',
-        prefill: {
-          name: user.name || '',
-          email: user.email || '',
-          contact: ''
-        },
-        notes: {
-          reward_id: r.id,
-          product: r.title
-        },
-        theme: { color: '#2B5748' },
-        modal: {
-          ondismiss: function () {
-            resolve({ ok: false, cancelled: true, error: 'Payment cancelled.' });
-          }
-        },
-        handler: function (response) {
-          // Payment success — unlock reward
-          Utils.markRedeemed(r.id);
-          try {
-            var purchases = JSON.parse(localStorage.getItem('mm_purchases') || '[]');
-            purchases.unshift({
-              id: r.id,
-              title: r.title,
-              inr: price,
-              paymentId: response.razorpay_payment_id || '',
-              at: new Date().toISOString(),
-              method: 'razorpay'
+  return Utils.callPaymentFn('razorpay-order', { reward_id: r.id }).then(function (order) {
+    if (order.already) {
+      Utils.markRedeemed(r.id);
+      return { ok: true, already: true, reward: r, price: 0 };
+    }
+    return Utils.loadRazorpay().then(function (Razorpay) {
+      return new Promise(function (resolve) {
+        var options = {
+          key: order.key_id,
+          order_id: order.order_id,
+          amount: order.amount,
+          currency: order.currency || 'INR',
+          name: (window.APP_CONFIG && (APP_CONFIG.companyName || APP_CONFIG.name)) || 'MockMaster',
+          description: r.title + ' — ₹' + price,
+          image: '../assets/images/icon-192.png',
+          prefill: { name: user.name || '', email: user.email || '', contact: '' },
+          notes: { reward_id: r.id, product: r.title },
+          theme: { color: '#2B5748' },
+          modal: {
+            ondismiss: function () { resolve({ ok: false, cancelled: true, error: 'Payment cancelled.' }); }
+          },
+          handler: function (response) {
+            Utils.callPaymentFn('razorpay-verify', {
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              signature: response.razorpay_signature
+            }).then(function () {
+              Utils.markRedeemed(r.id);
+              try {
+                var purchases = JSON.parse(localStorage.getItem('mm_purchases') || '[]');
+                purchases.unshift({ id: r.id, title: r.title, inr: price,
+                  paymentId: response.razorpay_payment_id || '', at: new Date().toISOString(), method: 'razorpay' });
+                localStorage.setItem('mm_purchases', JSON.stringify(purchases.slice(0, 50)));
+              } catch (_) {}
+              resolve({ ok: true, reward: r, price: price, paymentId: response.razorpay_payment_id || '' });
+            }).catch(function (err) {
+              resolve({ ok: false, error: ((err && err.message) || 'Could not verify payment') +
+                '. If money was deducted, contact support with payment ID ' + (response.razorpay_payment_id || '') + '.' });
             });
-            localStorage.setItem('mm_purchases', JSON.stringify(purchases.slice(0, 50)));
-          } catch (_) {}
-          resolve({
-            ok: true,
-            reward: r,
-            price: price,
-            paymentId: response.razorpay_payment_id || ''
+          }
+        };
+        try {
+          var rzp = new Razorpay(options);
+          rzp.on('payment.failed', function (resp) {
+            var msg = (resp && resp.error && (resp.error.description || resp.error.reason)) || 'Payment failed.';
+            resolve({ ok: false, error: msg });
           });
+          rzp.open();
+        } catch (err) {
+          resolve({ ok: false, error: (err && err.message) || 'Could not open payment.' });
         }
-      };
-      try {
-        var rzp = new Razorpay(options);
-        rzp.on('payment.failed', function (resp) {
-          var msg = (resp && resp.error && (resp.error.description || resp.error.reason)) || 'Payment failed.';
-          resolve({ ok: false, error: msg });
-        });
-        rzp.open();
-      } catch (err) {
-        resolve({ ok: false, error: (err && err.message) || 'Could not open payment.' });
-      }
+      });
     });
   }).catch(function (err) {
-    return { ok: false, error: (err && err.message) || 'Razorpay load failed.' };
+    return { ok: false, error: (err && err.message) || 'Payment failed.' };
   });
 };
 
@@ -292,23 +316,7 @@ Utils.redeemReward = function (id) {
   var r = Utils.getReward(id);
   if (!r) return { ok: false, error: 'Unknown reward.' };
   if (Utils.getRedeemed().includes(id)) return { ok: true, already: true, reward: r, price: 0 };
-
-  // Sync path used only when caller cannot await — prefer payWithRazorpay from UI
-  if (Utils.getRazorpayKey()) {
-    return { ok: false, async: true, error: 'Use payWithRazorpay for paid unlock.' };
-  }
-
-  var price = Utils.rewardPrice(r);
-  if (price > 0 && !Utils.spendCredits(price, 'Purchased: ' + r.title + ' · ₹' + price)) {
-    return { ok: false, error: 'Not enough credits (₹' + price + ' needed).' };
-  }
-  Utils.markRedeemed(id);
-  try {
-    var purchases = JSON.parse(localStorage.getItem('mm_purchases') || '[]');
-    purchases.unshift({ id: r.id, title: r.title, inr: price, at: new Date().toISOString(), method: 'credits' });
-    localStorage.setItem('mm_purchases', JSON.stringify(purchases.slice(0, 50)));
-  } catch (_) {}
-  return { ok: true, reward: r, price: price };
+  return { ok: false, async: true, error: 'Use payWithRazorpay for paid unlock.' };
 };
 
 /** Gate for reward pages: returns true if unlocked, else renders a "pay to unlock" card. */

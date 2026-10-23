@@ -16,7 +16,9 @@ Independent security review: No.
 | Audio → Voice or sound recordings | **No** (speech-to-text runs on the device's speech service; the app stores only text) | — | — | — |
 | App activity → In-app interactions / Other user-generated content (scores, progress, reports) | Yes | No | App functionality, Analytics (own progress only) | Required |
 | App info & performance → Diagnostics | No | — | — | — |
-| Location, Contacts, Photos, Files, Financial, Health | **No** | — | — | — |
+| Financial info → Purchase history | Yes (report purchased, amount, Razorpay order/payment ID) — web checkout only | Yes – Razorpay (payment processor) | App functionality | Optional |
+| Financial info → Payment info (card/UPI/bank) | **No** (entered with Razorpay, never reaches our servers) | — | — | — |
+| Location, Contacts, Photos, Files, Health | **No** | — | — | — |
 | Device or other IDs / Advertising ID | **No** | — | — | — |
 
 ### Notes for the "shared" column
@@ -25,6 +27,6 @@ Independent security review: No.
 
 ## Declarations
 * Ads: **No ads.**
-* In-app purchases: **No** (credits are free, earned in-app, with no cash value — if you ever sell credits you must use Google Play Billing).
+* In-app purchases: **No, in the Play build.** Paid report unlocks (Razorpay) are switched off inside the Android app (`paidUnlocksInPlayApp: false` in `assets/js/config.js`) and only work on the website; credits are free and have no cash value. If you ever enable paid unlocks inside the app you MUST integrate Google Play Billing (or Google's alternative-billing programme) first, and change this answer to Yes.
 * Financial features, Health apps, Government apps, News apps: **No.**
 * **Generative AI:** the app contains AI-generated content; users can report it (interview report → "Report a problem with AI content").

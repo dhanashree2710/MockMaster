@@ -610,6 +610,40 @@ WHERE s.status IN ('setup', 'in_progress')
 -- Old helper from the previous version (policies no longer use it)
 DROP FUNCTION IF EXISTS public.current_app_user_id();
 
+-- ============================================================
+-- PAID UNLOCKS (Razorpay) — server-verified purchases
+-- Written ONLY by the razorpay-order / razorpay-verify edge functions
+-- (service role). Users can read their own purchases, nothing else.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.razorpay_orders (
+  order_id     text PRIMARY KEY,
+  user_id      uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  reward_id    text NOT NULL,
+  amount_paise integer NOT NULL CHECK (amount_paise > 0),
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rzp_orders_user ON public.razorpay_orders (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.reward_purchases (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id     uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  reward_id   text NOT NULL,
+  order_id    text NOT NULL UNIQUE,
+  payment_id  text NOT NULL UNIQUE,
+  amount_paise integer NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, reward_id)
+);
+
+ALTER TABLE public.razorpay_orders  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reward_purchases ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.razorpay_orders, public.reward_purchases FROM anon, authenticated;
+GRANT SELECT ON public.reward_purchases TO authenticated;
+DROP POLICY IF EXISTS purchases_select_own ON public.reward_purchases;
+CREATE POLICY purchases_select_own ON public.reward_purchases
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+-- razorpay_orders: no policy => only service_role can touch it.
+
 -- ------------------------------------------------------------
 -- Verify: you should see NO policy that mentions role anon,
 -- and NO policy named demo_* / *_for_login

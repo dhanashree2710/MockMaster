@@ -247,7 +247,7 @@ const DB = {
         throw new Error('An account with this email already exists. Please sign in.');
       }
       if (/function.*(register_user|mm_register).*does not exist|schema cache/i.test(m)) {
-        throw new Error('Database not ready: run supabase/FIX_REGISTER_NOW.sql in Supabase SQL Editor, then wait a few seconds and retry.');
+        throw new Error('Database not ready: run supabase/schema.sql in the Supabase SQL Editor, then wait a few seconds and retry.');
       }
       throw new Error(error.message || 'Sign up failed');
     }
@@ -921,19 +921,26 @@ const DB = {
       localStorage.setItem('mm_user_progress', JSON.stringify(prog));
       const skills = prog.skills_improved;
       if (Array.isArray(skills)) {
-        const red = skills.find(x => x && x.type === 'redeemed');
-        if (red && Array.isArray(red.ids)) {
-          let own = [];
-          try { own = JSON.parse(localStorage.getItem('mm_redeemed') || '[]') || []; } catch (_) {}
-          localStorage.setItem('mm_redeemed', JSON.stringify(Array.from(new Set(own.concat(red.ids)))));
-        }
         const cred = skills.find(x => x && x.type === 'credits');
         if (cred && typeof cred.balance === 'number') {
           localStorage.setItem('mm_credits', String(cred.balance));
         }
       }
     }
+    try { await this.refreshEntitlements(); } catch (e) { console.warn('entitlements', e); }
     return true;
+  },
+
+  /** Unlocked rewards come ONLY from server-verified purchases (reward_purchases). */
+  async refreshEntitlements() {
+    if (!this.isConfigured()) return [];
+    const s = this.requireUser();
+    const sb = getSupabase();
+    const { data, error } = await sb.from('reward_purchases').select('reward_id').eq('user_id', s.userId);
+    if (error) throw error;
+    const ids = (data || []).map(r => r.reward_id);
+    localStorage.setItem('mm_redeemed', JSON.stringify(ids));
+    return ids;
   },
 
   async syncCreditsToCloud(balance) {
@@ -952,17 +959,8 @@ const DB = {
     } catch (e) { console.warn('syncCredits', e); }
   },
 
-  async syncRedeemedToCloud(ids) {
-    if (!this.isConfigured()) return;
-    try {
-      const s = this.requireUser();
-      const sb = getSupabase();
-      const { data: prog } = await sb.from('user_progress').select('skills_improved').eq('user_id', s.userId).maybeSingle();
-      let skills = Array.isArray(prog?.skills_improved) ? prog.skills_improved.filter(x => !(x && x.type === 'redeemed')) : [];
-      skills.push({ type: 'redeemed', ids: ids || [], updatedAt: new Date().toISOString() });
-      await sb.from('user_progress').upsert({ user_id: s.userId, skills_improved: skills, last_activity_at: new Date().toISOString() }, { onConflict: 'user_id' });
-    } catch (e) { console.warn('syncRedeemed', e); }
-  },
+  // Redeemed/unlocked state is no longer written from the browser (see refreshEntitlements).
+  async syncRedeemedToCloud() { /* intentionally a no-op */ },
 
   async listSessionReports() {
     if (!this.isConfigured()) return [];

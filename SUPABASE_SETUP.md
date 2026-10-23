@@ -17,14 +17,20 @@ SQL Editor → paste the **whole** `supabase/schema.sql` → Run.
   (e.g. a course platform with `profiles`, `courses`, `purchases`…), check **those**
   tables have RLS enabled too: *Table Editor → each table → "RLS enabled"*.
 
-## 3. Direct register via `public.users` (no Auth Email provider)
+## 3. Deploy the edge functions (AI + payments)
 
-Sign-up / sign-in use **RPC on `public.users`**, not Dashboard → Authentication → Providers → Email.
-
-1. Run `supabase/schema.sql` (if not already).
-2. Run **`supabase/custom_auth_users_table.sql`** in the SQL Editor (**required**).
-   Adds `password_hash`, `register_user`, `login_user`.
-3. No Confirm email / Email provider needed for create account.
+```
+supabase functions deploy ai-chat
+supabase functions deploy razorpay-order
+supabase functions deploy razorpay-verify
+supabase secrets set GROQ_API_KEY=gsk_xxx
+supabase secrets set RAZORPAY_KEY_ID=rzp_live_xxx RAZORPAY_KEY_SECRET=xxx
+supabase secrets set ALLOWED_ORIGIN=https://YOUR-HOST      # your real domain
+```
+* The Razorpay **secret** lives only here, never in the app. The app only has the public key id.
+* Prices are decided in `razorpay-order/index.ts` (`PRICES_INR`) — keep them equal to `Utils.REWARDS` in `assets/js/utils.js`.
+* Use `rzp_test_…` keys while testing, then switch to live keys and run
+  `python3 scripts/configure.py --razorpay-key rzp_live_xxx`.
 
 **Forgot password** — see PASSWORD_RESET_GUIDE.md.
 
@@ -34,7 +40,8 @@ Sign-up / sign-in use **RPC on `public.users`**, not Dashboard → Authenticatio
 3. Second account: confirm it can **not** see the first account's data.
 4. Settings → Delete account → you are signed out; the user is gone from
    Authentication → Users and `public.users`.
-5. With the anon key only (no login) try
+5. Pay for one report with a Razorpay TEST card → it unlocks, and a row appears in `reward_purchases`. Edit `mm_redeemed` in DevTools → on the next visit to Rewards it is reset from the server.
+6. With the anon key only (no login) try
    `curl "$SUPABASE_URL/rest/v1/users?select=*" -H "apikey: $ANON"` → must return `[]` or 401/permission error.
 
 ## Page → table map
@@ -47,6 +54,7 @@ Sign-up / sign-in use **RPC on `public.users`**, not Dashboard → Authenticatio
 | preparation-plan | `preparation_plans` |
 | interview setup / run / report | `interview_sessions`, `interview_questions`, `interview_answers`, `interview_reports`, `content_reports` |
 | AI proxy | `ai_usage_log` (service role only) |
+| rewards / payments | `reward_purchases` (read-only for the user), `razorpay_orders` (service role only) |
 
 ## Frontend API
 `window.DB` in `assets/js/supabase-client.js`:

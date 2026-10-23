@@ -203,33 +203,48 @@
     return chatDirect(messages, temperature);
   }
 
+  function toList(v) { return Array.isArray(v) ? v : (v ? String(v).split(/[,;|]/) : []); }
+
+  function resumeSkillList(resume) {
+    if (!resume) return [];
+    var sk = resume.skills || {};
+    var all = [].concat(
+      toList(Array.isArray(sk) ? sk : null),
+      toList(sk.technical), toList(sk.tools), toList(sk.frameworks), toList(sk.languages),
+      toList(sk.databases), toList(sk.soft)
+    ).map(function (x) { return String(x).trim(); }).filter(Boolean);
+    var seen = {}; return all.filter(function (x) { var k = x.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; });
+  }
+
   function resumeSummary(resume) {
     if (!resume) return 'No resume on file.';
-    var skills = []
-      .concat((resume.skills && resume.skills.technical) || [])
-      .concat((resume.skills && resume.skills.soft) || [])
-      .concat((resume.skills && resume.skills.tools) || [])
-      .concat((resume.skills && resume.skills.frameworks) || [])
-      .slice(0, 20);
-    var exp = (resume.experience || []).slice(0, 4).map(function (e) {
+    var skills = resumeSkillList(resume).slice(0, 40);
+    var exp = (resume.experience || []).slice(0, 5).map(function (e) {
       var bits = (e.role || '') + ' at ' + (e.company || '') + ' (' + (e.duration || '') + ')';
-      if (e.responsibilities && e.responsibilities.length) {
-        bits += ' — ' + e.responsibilities.slice(0, 2).join('; ');
-      }
+      var resp = (e.responsibilities || e.highlights || []).slice(0, 5).map(function (r) { return String(r).slice(0, 200); });
+      if (resp.length) bits += ' — ' + resp.join('; ');
       return bits;
     });
-    var projects = (resume.projects || []).slice(0, 3).map(function (p) {
-      return (p.name || '') + (p.tech ? ' [' + (Array.isArray(p.tech) ? p.tech.join(', ') : p.tech) + ']' : '');
+    var projects = (resume.projects || []).slice(0, 6).map(function (p) {
+      var tech = Array.isArray(p.tech) ? p.tech.join(', ') : (p.tech || '');
+      var desc = String(p.description || (p.highlights || []).join('; ') || '').slice(0, 300);
+      return (p.name || '') + (tech ? ' [tech: ' + tech + ']' : '') + (desc ? ' — ' + desc : '');
     });
+    var edu = (resume.education || []).slice(0, 2).map(function (e) {
+      return [e.degree, e.field, e.institution].filter(Boolean).join(', ');
+    });
+    var certs = toList(resume.certifications).slice(0, 5).map(function (c) { return typeof c === 'string' ? c : (c.name || ''); });
     return [
       'Name: ' + (resume.name || ''),
       'Current role: ' + (resume.currentRole || ''),
       'Experience years: ' + (resume.experienceYears || ''),
       'Career level: ' + (resume.careerLevel || ''),
       'Skills: ' + skills.join(', '),
-      'Experience: ' + exp.join(' | '),
-      'Projects: ' + projects.join(' | ')
-    ].join('\n');
+      'Experience:\n- ' + (exp.join('\n- ') || 'none listed'),
+      'Projects:\n- ' + (projects.join('\n- ') || 'none listed'),
+      edu.length ? 'Education: ' + edu.join(' | ') : '',
+      certs.filter(Boolean).length ? 'Certifications: ' + certs.filter(Boolean).join(', ') : ''
+    ].filter(Boolean).join('\n');
   }
 
   function jobSummary(job) {
@@ -262,30 +277,26 @@
     var style = setup.style || 'Professional';
     var language = setup.language || 'en';
 
+    var nProj = Math.min(3, ((resume && resume.projects) || []).length);
     var system = [
-      'You are a senior hiring manager conducting a REAL company interview for MockMaster.',
-      'You generate the exact questions the interviewer will ask — not generic quiz questions.',
+      'You are a senior hiring manager running a REAL interview for the position: "' + position + '".',
+      'Write the exact questions you would ask THIS candidate, using ONLY facts from the CANDIDATE RESUME and JOB DESCRIPTION below.',
       '',
-      'CRITICAL RULES:',
-      '1. MOST questions (at least 60%) MUST directly reference skills, tools, or responsibilities from the JOB DESCRIPTION and projects/skills from the CANDIDATE RESUME.',
-      '2. Interview flow MUST feel like a real company interview:',
-      '   Q1 = warm intro: welcome candidate, ask them to introduce themselves for THIS role.',
-      '   Q2 = resume bridge: pick one real job or project from the resume and dig into it.',
-      '   Then skill/technical questions tied to JD + resume (SQL, Power BI, Python, React, etc. as listed).',
-      '   Then 1 scenario from a JD responsibility.',
-      '   Then 1 behavioral (STAR).',
-      '   Then motivation ("Why this role?").',
-      '   Last = closing: ask if the candidate has questions.',
-      '3. NEVER ask generic unrelated questions (e.g. pure HTML basics for a Data Analyst JD that lists SQL/Power BI/Python).',
-      '4. Prefer skills that appear on BOTH the JD and the resume. For JD-only skills, ask a gap/learning question.',
-      '5. Name real resume projects and companies when asking follow-ups.',
-      '6. For technical roles: include practical problem-solving (SQL logic, dashboard design, code walk-through) — not only definitions.',
-      '7. For NON-technical roles: do NOT force coding.',
-      '8. NEVER repeat previously asked questions if a list is provided.',
-      '9. Every question needs a strong idealAnswer (structured, with example).',
-      '10. Return strict JSON only, no markdown:',
-      '   { "questions": [ { "question": string, "type": "intro|resume|project|technical|behavioral|scenario|hr|coding|gap|closing", "level": "basic|intermediate|advanced", "idealAnswer": string } ] }',
-      '11. Language: ' + language + '. Difficulty: ' + difficulty + '. Style: ' + style + '.',
+      'HARD RULES',
+      '1. Every question must be relevant to the target position "' + position + '". Skip resume skills that are irrelevant to that position.',
+      '2. Structure (in this order, adapt to the count): Q1 intro tailored to the role; then 1-2 questions on a REAL job from the resume (name the company and role); then ' +
+        (nProj ? ('questions on ' + nProj + ' DIFFERENT resume projects — name each project and mention its tech/what it did, ask about design decisions, challenges, trade-offs, your own contribution; ') : 'no project questions (resume lists none); ') +
+        'then practical skill questions; then 1 scenario from a JD responsibility; then 1 behavioral (STAR) tied to something in the resume; then motivation; last = closing.',
+      '3. Skill questions: pick skills listed on BOTH resume and JD first, then JD-only skills (ask as a "how would you approach / how quickly could you learn" gap question), then remaining resume skills relevant to the role. ONE question per skill. Each must be a practical, specific question about that skill (a real task, debugging, design choice, trade-off) — not just "What is X?".',
+      '4. Do NOT mention any project, company, tool or skill that is not in the resume or job description. Do not invent facts about the candidate.',
+      '5. For non-technical roles do NOT force coding or tools the role does not use.',
+      '6. Difficulty "' + difficulty + '": ' + (/hard/i.test(difficulty) ? 'deep, trade-off and edge-case questions' : /easy/i.test(difficulty) ? 'fundamentals and simple practical questions' : 'practical, intermediate depth') + '. Style: ' + style + '. Language: ' + language + '.',
+      '7. NEVER repeat or paraphrase any previously asked question if a list is provided.',
+      '8. Each question is ONE clear question (max 2 sentences). No numbering, no multi-part lists.',
+      '9. "basedOn" = the exact skill, project name, company or JD responsibility the question targets (copied from the resume/JD). Use "" only for intro, behavioral, motivation (hr) and closing questions.',
+      '10. "idealAnswer" = 2-4 sentence outline of what a strong answer to THAT question must contain. For resume/project questions use only facts present in the resume; never invent numbers.',
+      '11. Return strict JSON only (no markdown):',
+      '   { "questions": [ { "question": string, "type": "intro|resume|project|technical|behavioral|scenario|hr|coding|gap|closing", "level": "basic|intermediate|advanced", "basedOn": string, "idealAnswer": string } ] }',
       '12. Uniqueness token: ' + Date.now() + '.'
     ].join('\n');
 
@@ -316,10 +327,9 @@
       prevAsked.length
         ? ('=== PREVIOUSLY ASKED (do NOT repeat or paraphrase) ===\n' + prevAsked.map(function (q, i) { return (i + 1) + '. ' + q; }).join('\n') + '\n')
         : '',
-      'Generate exactly ' + num + ' UNIQUE interview questions.',
-      'PRIORITY: ground questions in the JD skills and the candidate resume projects/skills listed above.',
-      'Start with a company-style introduction question, then resume/project dig-in, then skill questions, then scenario, behavioral, motivation, and closing.',
-      'Do NOT invent unrelated topics that are not in the JD or resume.'
+      'Generate exactly ' + num + ' UNIQUE interview questions for the "' + position + '" position.',
+      'Ground them in the candidate\'s real projects, experience and skills above and in the job description.',
+      'Do NOT invent topics, projects or tools that are not in the resume or job description.'
     ].join('\n');
 
     var data = await chat(
@@ -330,18 +340,29 @@
       0.7
     );
 
+    var corpus = (resumeSummary(resume) + ' ' + jobSummary(job) + ' ' + position).toLowerCase();
+    var GROUNDED = { resume: 1, project: 1, technical: 1, coding: 1, gap: 1, scenario: 1 };
+    function grounded(q) {
+      if (!GROUNDED[q.type]) return true;
+      var b = String(q.basedOn || '').toLowerCase().replace(/[^a-z0-9+#.\s]/g, ' ').trim();
+      if (!b) return false;
+      if (corpus.indexOf(b) !== -1) return true;
+      var toks = b.split(/\s+/).filter(function (t) { return t.length > 2; });
+      return toks.length > 0 && toks.some(function (t) { return corpus.indexOf(t) !== -1; });
+    }
     var list = (data.questions || data.items || []).map(function (q, i) {
       return {
         id: i + 1,
-        question: q.question || q.text || String(q),
+        question: String(q.question || q.text || q || '').trim(),
         type: q.type || 'technical',
         level: q.level || 'intermediate',
+        basedOn: String(q.basedOn || q.skill || '').trim(),
         idealAnswer: q.idealAnswer || q.betterAnswer || q.modelAnswer || '',
         domain: 'ai',
         source: getConfig().provider
       };
     }).filter(function (q) {
-      return q.question && q.question.length > 8;
+      return q.question && q.question.length > 8 && grounded(q);
     });
 
     if (!list.length) throw new Error('No questions in AI response');
@@ -378,34 +399,78 @@
     return list.slice(0, num);
   }
 
-  async function evaluateAnswer(ctx) {
-    var system =
-      'You are a strict but fair interview evaluator for Indian and global job interviews. Score 0-100. ' +
-      'Very short, "I don\'t know", or off-topic answers must score below 35. ' +
-      'Return JSON only: { "score": number, "evaluation": string, "betterAnswer": string } ' +
-      'betterAnswer must be a complete, high-quality sample answer the candidate could have given for THIS exact question (structured, concrete, with examples). ' +
-      'Write evaluation and betterAnswer in the same language as the question when possible.';
-
-    var user = [
-      'Role: ' + (ctx.position || 'candidate'),
-      'Question type: ' + (ctx.type || 'general'),
-      'Question: ' + ctx.question,
-      'Candidate answer: ' + (ctx.answer || '(empty)')
+  /**
+   * Grade ANSWERS against their own questions, with the candidate's resume and the JD as context.
+   * ctx = { resume, job, setup, answers:[{question,type,basedOn,answer}] }
+   * Returns an array aligned with ctx.answers: { score, evaluation, betterAnswer, strengths, improvement }
+   * Done in batches of 5 to stay inside the per-user AI rate limit (1 call per 5 answers).
+   */
+  async function gradeAnswers(ctx) {
+    var answers = ctx.answers || [];
+    var position = (ctx.setup && ctx.setup.position) || (ctx.job && (ctx.job.position || ctx.job.title)) || 'the target role';
+    var difficulty = (ctx.setup && ctx.setup.difficulty) || 'Medium';
+    var language = (ctx.setup && ctx.setup.language) || 'en';
+    var system = [
+      'You are a strict but fair interviewer-evaluator for the position "' + position + '" (difficulty: ' + difficulty + ').',
+      'For EACH numbered question/answer pair, judge the candidate\'s answer against THAT question only.',
+      '',
+      'SCORING (0-100): correctness and relevance to the question (50%), depth and specifics (25%), structure and clarity (15%), use of a concrete example from their own experience (10%).',
+      'Empty, "I don\'t know", or off-topic answers must score below 30. A correct but shallow answer scores 40-60. Only complete, accurate, example-backed answers exceed 80.',
+      '',
+      'For each item return:',
+      '- "evaluation": 2-3 sentences, specific to THEIR answer: what was correct, what was missing or wrong, what to add. Never generic praise.',
+      '- "betterAnswer": a model answer the candidate could give to THAT exact question, in first person, 80-160 words. It must directly answer the question asked (not a different topic). For technical questions be accurate and include a short concrete example. For resume/project questions build it from the candidate\'s REAL resume facts (project names, tech, responsibilities) and use placeholders like "[add your measurable result]" instead of inventing numbers. For behavioral questions use STAR. For intro questions write a 60-90 second pitch tailored to the role and their resume.',
+      '- "strengths": array of 0-2 short phrases (only if truly shown in their answer).',
+      '- "improvement": one short, actionable sentence.',
+      '',
+      'Write evaluation, strengths, improvement and betterAnswer in language code "' + language + '".',
+      'Return strict JSON only: { "results": [ { "index": number, "score": number, "evaluation": string, "betterAnswer": string, "strengths": [string], "improvement": string } ] }',
+      'Return exactly one result per input item, using the same "index".'
     ].join('\n');
 
-    var data = await chat(
-      [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      0.3
-    );
+    var out = new Array(answers.length);
+    var batches = [];
+    for (var i = 0; i < answers.length; i += 5) batches.push(answers.slice(i, i + 5).map(function (a, j) { return { idx: i + j, a: a }; }));
 
-    return {
-      score: Math.max(0, Math.min(100, Math.round(Number(data.score) || 0))),
-      evaluation: data.evaluation || '',
-      betterAnswer: data.betterAnswer || data.suggested || ''
-    };
+    await Promise.all(batches.map(async function (batch) {
+      var user = [
+        '=== CANDIDATE RESUME ===', resumeSummary(ctx.resume), '',
+        '=== JOB DESCRIPTION ===', jobSummary(ctx.job), '',
+        '=== QUESTIONS AND ANSWERS ===',
+        batch.map(function (it) {
+          return 'ITEM ' + it.idx + '\nType: ' + (it.a.type || 'general') + (it.a.basedOn ? '\nTargets: ' + it.a.basedOn : '') +
+            '\nQuestion: ' + it.a.question + '\nCandidate answer: ' + (String(it.a.answer || '').trim().slice(0, 1800) || '(empty)');
+        }).join('\n\n')
+      ].join('\n');
+      try {
+        var data = await chat([{ role: 'system', content: system }, { role: 'user', content: user }], 0.3);
+        (data.results || []).forEach(function (r) {
+          var idx = Number(r.index);
+          if (isNaN(idx) || idx < 0 || idx >= answers.length) return;
+          var better = String(r.betterAnswer || r.suggested || '').trim();
+          out[idx] = {
+            score: Math.max(0, Math.min(100, Math.round(Number(r.score) || 0))),
+            evaluation: String(r.evaluation || '').trim(),
+            betterAnswer: better.length > 40 ? better : '',
+            strengths: Array.isArray(r.strengths) ? r.strengths.map(String).slice(0, 2) : [],
+            improvement: String(r.improvement || '').trim()
+          };
+        });
+      } catch (err) {
+        console.warn('[MockMaster AI] grading batch failed', err && err.message);
+      }
+    }));
+    return out;
+  }
+
+  /** Single-answer helper (kept for compatibility) */
+  async function evaluateAnswer(ctx) {
+    var res = await gradeAnswers({
+      resume: ctx.resume, job: ctx.job, setup: { position: ctx.position },
+      answers: [{ question: ctx.question, type: ctx.type, basedOn: ctx.basedOn, answer: ctx.answer }]
+    });
+    var r = res[0] || {};
+    return { score: r.score || 0, evaluation: r.evaluation || '', betterAnswer: r.betterAnswer || '' };
   }
 
   async function buildQuestionsSmart(ctx) {
@@ -430,6 +495,7 @@
     isConfigured: isConfigured,
     generateQuestions: generateQuestions,
     evaluateAnswer: evaluateAnswer,
+    gradeAnswers: gradeAnswers,
     buildQuestionsSmart: buildQuestionsSmart
   };
 })(window);

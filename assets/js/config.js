@@ -105,7 +105,12 @@ const APP_CONFIG = {
   // Test: https://dashboard.razorpay.com/app/keys
   razorpayKeyId: 'rzp_test_TqTIeeqhuAXMJa',
   razorpayCurrency: 'INR',
-  companyName: 'MockMaster'
+  companyName: 'MockMaster',
+
+  // Google Play requires Play Billing for digital goods sold inside the Play app.
+  // false = paid unlocks (Razorpay) are disabled inside the Android/TWA app and only work on the website.
+  // Set true ONLY if you have integrated Play Billing or Google's alternative-billing programme.
+  paidUnlocksInPlayApp: false
 };
 
 // ---- Mock Candidate (used until real AI/backend is connected) ----

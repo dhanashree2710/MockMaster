@@ -1,9 +1,9 @@
-/* MockMaster PWA service worker — v3.1
+/* MockMaster PWA service worker — v3.3
  * - App shell (HTML/JS/manifest): network-first, cache fallback
  * - Static assets + approved CDN libraries/fonts: stale-while-revalidate
  * - Supabase / AI / any other origin: never cached (always network)
  */
-const CACHE = 'mockmaster-v3.2';
+const CACHE = 'mockmaster-v3.3';
 const PRECACHE = [
   './',
   './index.html',

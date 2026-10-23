@@ -7,6 +7,7 @@ Fill in every launch placeholder in ONE command (run from the project root):
       --host   app.yourdomain.com \
       --package com.yourname.mockmaster \
       --sha256 "AA:BB:CC:...:FF"        # Play Console -> Setup -> App signing -> SHA-256
+      --razorpay-key rzp_live_xxxxxxxx  # Razorpay LIVE key id (public id only, never the secret)
 
 Any option may be omitted and run again later. --sha256 is the *App signing key*
 certificate fingerprint shown in Play Console (NOT your local upload key).
@@ -19,6 +20,7 @@ TOKENS = {
     'host':    'REPLACE-your-host.example.com',
     'package': 'REPLACE.WITH.YOUR.PACKAGE.ID',
     'sha256':  'REPLACE:WITH:THE:SHA256:FINGERPRINT:OF:YOUR:PLAY-APP-SIGNING-KEY',
+    'razorpay_key': 'rzp_test_TqTIeeqhuAXMJa',   # swaps the TEST key id for your LIVE key id
 }
 TEXT_EXT = ('.html', '.js', '.json', '.md', '.txt', '.webmanifest', '.ts', '.py')
 SKIP_DIRS = {'.git', 'node_modules', 'vendor'}
@@ -30,13 +32,14 @@ def validate(k, v):
         'host':    r'^(?!https?://)[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
         'package': r'^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$',
         'sha256':  r'^([0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$',
+        'razorpay_key': r'^rzp_live_[A-Za-z0-9]+$',
     }[k]
     if not re.match(ok, v):
         sys.exit(f'Invalid --{k}: {v!r}')
 
 def main():
     ap = argparse.ArgumentParser()
-    for k in TOKENS: ap.add_argument('--' + k)
+    for k in TOKENS: ap.add_argument('--' + k.replace('_', '-'))
     a = vars(ap.parse_args())
     todo = {k: v.strip() for k, v in a.items() if v}
     if not todo: ap.print_help(); return

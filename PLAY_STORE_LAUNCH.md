@@ -74,6 +74,6 @@ bubblewrap build                                                             # c
 * New personal developer accounts must run a **closed test with a minimum number of testers for a minimum number of days** before production access. Check the current numbers in Play Console (Dashboard → "Set up your app / Testing requirements") — they change.
 
 ## Known limits (not blockers)
-* Credits are stored on the device/profile and have no cash value. If you ever sell anything digital you must use Google Play Billing and verify purchases server-side.
+* Credits are stored on the device/profile and have no cash value. Paid report unlocks (Razorpay) are verified on the server and are disabled inside the Play app (`paidUnlocksInPlayApp: false`) because Google requires Play Billing for digital goods sold in Play apps. Check Google's current payments policy before changing this.
 * Voice answers need a Chrome-based TWA (that is why TWA, not a plain WebView wrapper, is recommended).
 * The service worker caches only app files and public libraries — never API calls.
